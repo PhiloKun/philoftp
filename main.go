@@ -54,7 +54,9 @@ func main() {
 		log.Fatalf("启动 FTP 失败: %v", err)
 	}
 
-	_ = handler.StartWeb(cfg, store)
+	if _, err := handler.StartWeb(cfg, store); err != nil {
+		log.Fatalf("启动 Web 失败: %v", err)
+	}
 
 	ip := localIP()
 	fmt.Println("========================================")

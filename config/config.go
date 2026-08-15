@@ -22,6 +22,7 @@ type Config struct {
 	TLSCert     string `json:"tls_cert"` // FTPS 证书（留空则禁用）
 	TLSKey      string `json:"tls_key"`  // FTPS 私钥
 	EnableFTPS  bool   `json:"enable_ftps"` // 是否启用 FTPS
+	AllowRegister bool `json:"allow_register"` // 是否允许 Web 端自助注册（默认 true，生产可关闭）
 	mu          sync.RWMutex
 }
 
@@ -34,6 +35,7 @@ func DefaultConfig() *Config {
 		WebPort:     8080,
 		DataDir:     "data",
 		EnableFTPS:  false,
+		AllowRegister: true,
 	}
 }
 
@@ -118,7 +120,15 @@ func (c *Config) ToAPI() map[string]interface{} {
 		"web_port":      c.WebPort,
 		"data_dir":      c.DataDir,
 		"enable_ftps":   c.EnableFTPS,
+		"allow_register": c.AllowRegister,
 		"tls_cert":      c.TLSCert,
 		"tls_key":       c.TLSKey,
 	}
+}
+
+// AllowRegisterEnabled 返回是否允许自助注册（读锁保护）
+func (c *Config) AllowRegisterEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AllowRegister
 }
