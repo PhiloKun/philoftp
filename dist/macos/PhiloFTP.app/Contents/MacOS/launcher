@@ -1,0 +1,6 @@
+#!/bin/bash
+# PhiloFTP launcher: 切换到 Resources 目录运行主程序，使 config/users/data 都在 app 内
+DIR="$(cd "$(dirname "$0")" && pwd)"
+RESOURCES="$DIR/../Resources"
+cd "$RESOURCES" || exit 1
+exec "$DIR/philoftp" -config config.json -users users.json

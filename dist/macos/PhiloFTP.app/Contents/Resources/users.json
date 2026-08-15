@@ -1,0 +1,16 @@
+[
+  {
+    "username": "admin",
+    "password": "admin123",
+    "home": "admin",
+    "read_only": false,
+    "enabled": true
+  },
+  {
+    "username": "guest",
+    "password": "guest123",
+    "home": "guest",
+    "read_only": true,
+    "enabled": true
+  }
+]

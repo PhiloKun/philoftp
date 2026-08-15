@@ -1,0 +1,15 @@
+# 运行时数据（用户上传的文件，不纳入版本控制）
+/data/*
+!/data/.gitkeep
+
+# 本地编译产物
+/philoftp
+/philoftp.exe
+
+# Go 构建缓存
+*.test
+*.out
+
+# 编辑器/系统文件
+.DS_Store
+*.swp
