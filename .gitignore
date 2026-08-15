@@ -6,6 +6,10 @@
 /philoftp
 /philoftp.exe
 
+# 构建产物：dist 下所有二进制/压缩包由 `make dist` 重新生成，不纳入版本控制
+/dist/
+# 若希望保留空目录结构，可在此添加对应的 !dist/xxx/.gitkeep 例外
+
 # Go 构建缓存
 *.test
 *.out
