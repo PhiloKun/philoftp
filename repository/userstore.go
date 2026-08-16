@@ -39,9 +39,15 @@ func NewUserStore(path string) (*UserStore, error) {
 	return s, nil
 }
 
+// save 在调用方未持锁时持久化（自持读锁，仅用于初始化）
 func (s *UserStore) save() error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	return s.saveLocked()
+}
+
+// saveLocked 不持锁地写入磁盘，调用方必须已持有 s.mu（读锁或写锁均可）
+func (s *UserStore) saveLocked() error {
 	data, err := json.MarshalIndent(s.users, "", "  ")
 	if err != nil {
 		return err
@@ -86,11 +92,11 @@ func (s *UserStore) Upsert(u model.User) error {
 	for i, existing := range s.users {
 		if existing.Username == u.Username {
 			s.users[i] = u
-			return s.save()
+			return s.saveLocked()
 		}
 	}
 	s.users = append(s.users, u)
-	return s.save()
+	return s.saveLocked()
 }
 
 // Delete 删除用户
@@ -104,5 +110,5 @@ func (s *UserStore) Delete(username string) error {
 		}
 	}
 	s.users = out
-	return s.save()
+	return s.saveLocked()
 }

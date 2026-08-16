@@ -1,507 +1,456 @@
 package handler
 
-// DashboardHTML 是内置的 Web 管理页面（仪表盘）。
-// 采用零外部依赖设计：单文件自包含，交互全部基于原生 HTML + TDesign 设计风格 CSS，
-// 不引用任何 CDN，确保内网无外网环境也能完美运行与美化。
-const DashboardHTML = `<!DOCTYPE html>
-<html lang="zh-CN" data-theme="dark">
+// DashboardHTML 是内置管理后台（SPA：左侧菜单 + 右侧视图切换）
+var DashboardHTML = `<!DOCTYPE html>
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PhiloFTP 管理端</title>
+<title>PhiloFTP 管理后台</title>
 <style>
-  :root {
-    --brand: #0052d9; --brand-hover: #266fe8; --brand-active: #003cab;
-    --success: #2ba471; --warning: #e37318; --danger: #d54941;
-    --bg-page: #181818; --bg-container: #232324; --bg-container-hover: #2a2a2b;
-    --bg-input: #1a1a1a; --border: #424244;
-    --text-1: rgba(255,255,255,.9); --text-2: rgba(255,255,255,.6); --text-3: rgba(255,255,255,.4);
-    --radius: 9px; --spacer: 16px; --shadow: 0 2px 8px rgba(0,0,0,.3);
+  :root{
+    --bg:#0b0e14; --panel:#161b27; --panel2:#1d2433; --border:#2a3346;
+    --text:#e6ebf2; --muted:#8b97a8; --brand:#0052d9; --brand2:#366ef4;
+    --success:#00a870; --danger:#d54941; --warn:#ed7b2f; --radius:10px;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-    background: var(--bg-page); color: var(--text-1); min-height: 100vh; font-size: 14px; line-height: 1.5;
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg); color:var(--text); display:flex; min-height:100vh;
   }
-  .app-header {
-    position: sticky; top: 0; z-index: 50; display: flex; align-items: center; justify-content: space-between;
-    padding: 0 32px; height: 64px; background: var(--bg-container); border-bottom: 1px solid var(--border); box-shadow: var(--shadow);
+  /* 左侧菜单 */
+  .sidebar{
+    width:230px; flex-shrink:0; background:var(--panel); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; padding:18px 12px; position:sticky; top:0; height:100vh;
   }
-  .brand { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; }
-  .brand .logo { font-size: 24px; }
-  .header-right { display: flex; align-items: center; gap: 14px; }
-  .user-chip { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 13px; }
-  .user-chip .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--brand); color: #fff;
-    display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; }
-  .container { max-width: 1200px; margin: 24px auto; padding: 0 20px; }
-  .page-title { font-size: 16px; font-weight: 600; margin: 4px 0 16px; color: var(--text-1); }
-
-  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacer); margin-bottom: 24px; }
-  .stat-card {
-    background: var(--bg-container); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 20px 22px; transition: border-color .2s, transform .2s;
+  .brand{display:flex; align-items:center; gap:10px; padding:6px 10px 18px; font-size:18px; font-weight:700;}
+  .brand .logo{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--brand),var(--brand2));
+    display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;}
+  .nav{display:flex; flex-direction:column; gap:4px; flex:1;}
+  .nav-item{
+    display:flex; align-items:center; gap:10px; padding:11px 13px; border-radius:8px;
+    color:var(--muted); cursor:pointer; font-size:14px; user-select:none; transition:.15s;
   }
-  .stat-card:hover { border-color: var(--brand); transform: translateY(-2px); }
-  .stat-card .label { color: var(--text-2); font-size: 13px; margin-bottom: 8px; }
-  .stat-card .value { font-size: 26px; font-weight: 700; color: var(--brand); word-break: break-all; }
-
-  .panel { background: var(--bg-container); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; margin-bottom: 24px; }
-  .panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; flex-wrap: wrap; gap: 12px; }
-  .panel-head h2 { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-  .panel-head h2::before { content: ""; width: 4px; height: 16px; border-radius: 2px; background: var(--brand); }
-  .toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-
-  .btn {
-    border: none; border-radius: 6px; padding: 8px 16px; font-size: 14px; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 6px; line-height: 1; transition: background .2s, border-color .2s, color .2s; white-space: nowrap; font-family: inherit;
+  .nav-item:hover{background:var(--panel2); color:var(--text);}
+  .nav-item.active{background:var(--brand); color:#fff;}
+  .nav-item .ico{width:18px; text-align:center; font-size:15px;}
+  .sidebar-foot{margin-top:12px; padding-top:14px; border-top:1px solid var(--border);}
+  .user-line{font-size:13px; color:var(--muted); padding:0 10px 10px; display:flex; justify-content:space-between; align-items:center;}
+  .user-line b{color:var(--text);}
+  .btn-logout{background:transparent;border:1px solid var(--border);color:var(--muted);
+    padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px;}
+  .btn-logout:hover{color:var(--text);border-color:var(--muted);}
+  /* 右侧内容 */
+  .main{flex:1; min-width:0; display:flex; flex-direction:column;}
+  .topbar{height:56px;border-bottom:1px solid var(--border);display:flex;align-items:center;
+    padding:0 24px;gap:12px;background:var(--panel);position:sticky;top:0;z-index:5;}
+  .topbar h1{font-size:16px;margin:0;font-weight:600;}
+  .topbar .crumb{color:var(--muted);font-size:13px;}
+  .content{padding:24px; overflow:auto; flex:1;}
+  .view{display:none; animation:fade .2s ease;}
+  .view.active{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+  /* 卡片/网格 */
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px; margin-top:18px;}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px;}
+  .card .k{color:var(--muted);font-size:13px;margin-bottom:8px;}
+  .card .v{font-size:24px;font-weight:700;}
+  .stat-ico{font-size:20px;margin-right:8px;}
+  .section-title{font-size:15px;font-weight:600;margin:4px 0 14px;display:flex;align-items:center;justify-content:space-between;}
+  /* 表格 */
+  table{width:100%;border-collapse:collapse;background:var(--panel);border-radius:var(--radius);overflow:hidden;}
+  th,td{padding:12px 14px;text-align:left;font-size:14px;border-bottom:1px solid var(--border);}
+  th{color:var(--muted);font-weight:500;background:var(--panel2);}
+  tr:last-child td{border-bottom:none;}
+  .tag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;}
+  .tag.ok{background:rgba(0,168,112,.16);color:var(--success);}
+  .tag.off{background:rgba(139,151,168,.16);color:var(--muted);}
+  .tag.ro{background:rgba(237,123,47,.16);color:var(--warn);}
+  /* 按钮 */
+  .btn{background:var(--brand);color:#fff;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-size:14px;}
+  .btn:hover{background:var(--brand2);}
+  .btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text);}
+  .btn.ghost:hover{border-color:var(--muted);}
+  .btn.danger{background:var(--danger);}
+  .btn.sm{padding:5px 11px;font-size:13px;}
+  /* 表单 */
+  .form-row{display:flex;flex-direction:column;gap:7px;margin-bottom:18px;max-width:420px;}
+  .form-row label{font-size:13px;color:var(--muted);}
+  .input,select.input,textarea.input{background:var(--panel2);border:1px solid var(--border);color:var(--text);
+    padding:10px 12px;border-radius:8px;font-size:14px;width:100%;outline:none;}
+  .input:focus{border-color:var(--brand);}
+  .switch{display:inline-flex;align-items:center;gap:10px;cursor:pointer;}
+  .switch input{width:18px;height:18px;}
+  /* 弹层 */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:20;}
+  .overlay.show{display:flex;}
+  .modal{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:24px;width:440px;max-width:92vw;}
+  .modal h3{margin:0 0 18px;font-size:17px;}
+  .form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:8px;}
+  /* 提示条 */
+  .toast{position:fixed;top:18px;right:18px;background:var(--panel2);border:1px solid var(--border);
+    padding:12px 18px;border-radius:10px;z-index:40;font-size:14px;opacity:0;transform:translateY(-8px);
+    transition:.25s;max-width:340px;}
+  .toast.show{opacity:1;transform:none;}
+  .toast.ok{border-color:var(--success);}
+  .toast.err{border-color:var(--danger);}
+  .hint{color:var(--muted);font-size:12px;margin-top:6px;}
+  .empty{color:var(--muted);text-align:center;padding:40px;font-size:14px;}
+  /* 文件区 */
+  .filebar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;}
+  .path-box{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;flex:1;min-width:200px;color:var(--muted);}
+  .progress-mask{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:50;}
+  .progress-mask.show{display:flex;}
+  .progress-box{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;width:360px;}
+  .progress-bar{height:10px;background:var(--panel2);border-radius:6px;overflow:hidden;margin:14px 0;}
+  .progress-bar > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--brand),var(--brand2));transition:width .15s;}
+  .progress-text{font-size:13px;color:var(--muted);display:flex;justify-content:space-between;}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--muted);border-top-color:var(--brand);
+    border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+  /* 响应式 */
+  @media (max-width:760px){
+    body{flex-direction:column;}
+    .sidebar{width:100%;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;padding:10px;position:static;}
+    .brand{padding:6px 10px;font-size:16px;}
+    .nav{flex-direction:row;flex-wrap:wrap;gap:6px;flex:1;margin-top:0;}
+    .nav-item{padding:8px 12px;font-size:13px;}
+    .nav-item .label{display:inline;}
+    .sidebar-foot{width:100%;margin-top:0;border-top:none;padding-top:0;}
+    .user-line{width:100%;border-top:1px solid var(--border);padding-top:10px;}
+    .topbar{padding:0 14px;}
+    .content{padding:16px;}
+    .grid{grid-template-columns:1fr 1fr;}
   }
-  .btn-primary { background: var(--brand); color: #fff; }
-  .btn-primary:hover { background: var(--brand-hover); }
-  .btn-primary:active { background: var(--brand-active); }
-  .btn-default { background: transparent; color: var(--text-1); border: 1px solid var(--border); }
-  .btn-default:hover { border-color: var(--brand); color: var(--brand); }
-  .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--border); }
-  .btn-danger:hover { border-color: var(--danger); color: var(--danger); }
-  .btn-sm { padding: 5px 12px; font-size: 13px; }
-
-  .input, .select {
-    padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-input);
-    color: var(--text-1); font-size: 14px; font-family: inherit; outline: none; transition: border-color .2s;
-  }
-  .input:focus, .select:focus { border-color: var(--brand); }
-  .input::placeholder { color: var(--text-3); }
-  .toolbar .input { flex: 1; min-width: 180px; }
-  .toolbar .select { min-width: 160px; }
-
-  .tag { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 12px; line-height: 18px; }
-  .tag-success { color: var(--success); background: rgba(43,164,113,.15); }
-  .tag-warning { color: var(--warning); background: rgba(227,115,24,.15); }
-  .tag-default { color: var(--text-2); background: rgba(255,255,255,.08); }
-  .tag-brand { color: var(--brand); background: rgba(0,82,217,.15); }
-
-  table.grid { width: 100%; border-collapse: collapse; font-size: 14px; }
-  table.grid th, table.grid td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); }
-  table.grid th { color: var(--text-2); font-weight: 500; font-size: 13px; background: var(--bg-page); }
-  table.grid tbody tr { transition: background .15s; }
-  table.grid tbody tr:hover { background: var(--bg-container-hover); }
-  table.grid code { background: var(--bg-page); padding: 2px 6px; border-radius: 4px; font-size: 12px; color: var(--text-2); }
-  .op-btns { display: flex; gap: 8px; }
-
-  .path-bar {
-    background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px;
-    margin-bottom: 16px; font-family: ui-monospace, monospace; font-size: 13px; color: var(--text-2); word-break: break-all;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .path-bar .crumb { cursor: pointer; }
-  .path-bar .crumb:hover { color: var(--brand); }
-  .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; }
-  .file-item {
-    background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 16px;
-    transition: border-color .15s, transform .15s; cursor: pointer; position: relative;
-  }
-  .file-item:hover { border-color: var(--brand); transform: translateY(-2px); }
-  .file-item .icon { font-size: 34px; margin-bottom: 8px; text-align: center; }
-  .file-item .name { font-size: 13px; word-break: break-all; line-height: 1.4; text-align: center; }
-  .file-item .meta { font-size: 11px; color: var(--text-3); margin-top: 4px; text-align: center; }
-  .file-item .dl {
-    position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 6px;
-    background: rgba(0,0,0,.35); border: 1px solid var(--border); color: var(--text-2);
-    display: none; align-items: center; justify-content: center; cursor: pointer; font-size: 13px;
-  }
-  .file-item:hover .dl { display: inline-flex; }
-  .file-item .dl:hover { color: #fff; border-color: var(--brand); background: var(--brand); }
-  .empty { color: var(--text-3); text-align: center; padding: 48px 0; }
-
-  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; }
-  .overlay.hidden { display: none; }
-  .modal { background: var(--bg-container); border: 1px solid var(--border); border-radius: var(--radius); width: 440px; max-width: 100%; box-shadow: 0 6px 30px rgba(0,0,0,.4); overflow: hidden; }
-  .modal-head { padding: 20px 22px 0; font-size: 16px; font-weight: 600; }
-  .modal-body { padding: 20px 22px; }
-  .modal-foot { padding: 0 22px 20px; display: flex; justify-content: flex-end; gap: 12px; }
-  .form-row { margin-bottom: 16px; }
-  .form-row > label { display: block; font-size: 13px; color: var(--text-2); margin-bottom: 6px; }
-  .form-row .input { width: 100%; }
-  .checkbox { display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-1); font-size: 14px; }
-  .checkbox input { width: 16px; height: 16px; accent-color: var(--brand); }
-
-  /* 下载进度条 */
-  .dl-toast {
-    position: fixed; right: 24px; bottom: 24px; width: 320px; max-width: calc(100vw - 48px); z-index: 2000;
-    background: var(--bg-container); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 14px 16px; box-shadow: 0 8px 30px rgba(0,0,0,.5);
-  }
-  .dl-toast .dl-name { font-size: 13px; color: var(--text-1); margin-bottom: 10px; word-break: break-all; display: flex; justify-content: space-between; gap: 10px; }
-  .dl-toast .dl-pct { color: var(--brand); font-weight: 600; }
-  .dl-bar { height: 7px; border-radius: 4px; background: var(--bg-input); overflow: hidden; }
-  .dl-bar > i { display: block; height: 100%; width: 0; background: var(--brand); transition: width .2s; }
-  .dl-toast .dl-meta { font-size: 11px; color: var(--text-3); margin-top: 6px; display: flex; justify-content: space-between; }
-
-  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 22px; border-radius: 10px; font-weight: 600; z-index: 9999; color: #fff; background: var(--brand); opacity: 0; transition: opacity .25s; pointer-events: none; }
-
-  @media (max-width: 640px) {
-    .app-header { padding: 0 16px; }
-    .container { padding: 0 12px; }
-    .stat-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
-    .file-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
-    .toolbar { width: 100%; }
-    .toolbar .input, .toolbar .select, .toolbar .btn { flex: 1 1 auto; }
-  }
+  @media (max-width:480px){.grid{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
+  <aside class="sidebar">
+    <div class="brand"><span class="logo">📁</span><span>PhiloFTP</span></div>
+    <nav class="nav" id="nav">
+      <div class="nav-item active" data-view="overview"><span class="ico">📊</span><span class="label">概览</span></div>
+      <div class="nav-item" data-view="users"><span class="ico">👤</span><span class="label">用户管理</span></div>
+      <div class="nav-item" data-view="files"><span class="ico">📂</span><span class="label">文件管理</span></div>
+      <div class="nav-item" data-view="basic"><span class="ico">⚙️</span><span class="label">基础设置</span></div>
+      <div class="nav-item" data-view="system"><span class="ico">🖥️</span><span class="label">系统配置</span></div>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="user-line"><span>当前用户 <b id="curUser">...</b></span></div>
+      <button class="btn-logout" id="logoutBtn">退出登录</button>
+    </div>
+  </aside>
 
-<header class="app-header">
-  <div class="brand"><span class="logo">📁</span><span>PhiloFTP 管理端</span></div>
-  <div class="header-right">
-    <div class="user-chip"><span class="avatar" id="avatar">U</span><span id="curUser">...</span></div>
-    <button class="btn btn-default btn-sm" id="logoutBtn">退出</button>
+  <div class="main">
+    <div class="topbar"><h1 id="viewTitle">概览</h1><span class="crumb" id="viewCrumb"></span></div>
+    <div class="content">
+
+      <!-- 概览 -->
+      <section class="view active" id="view-overview">
+        <div class="grid" id="ovGrid"></div>
+      </section>
+
+      <!-- 用户管理 -->
+      <section class="view" id="view-users">
+        <div class="section-title">
+          <span>用户列表</span>
+          <button class="btn" id="addUserBtn">+ 新增用户</button>
+        </div>
+        <table id="userTable">
+          <thead><tr><th>用户名</th><th>主目录</th><th>状态</th><th>权限</th><th>操作</th></tr></thead>
+          <tbody id="userBody"></tbody>
+        </table>
+        <div class="empty" id="userEmpty" style="display:none">暂无用户</div>
+      </section>
+
+      <!-- 文件管理 -->
+      <section class="view" id="view-files">
+        <div class="filebar">
+          <div class="path-box" id="filePath">/</div>
+          <button class="btn ghost sm" id="mkdirBtn">新建目录</button>
+          <label class="btn sm" style="margin:0">上传<input type="file" id="uploadInput" multiple style="display:none"></label>
+          <button class="btn ghost sm" id="refreshBtn">刷新</button>
+        </div>
+        <table id="fileTable">
+          <thead><tr><th>名称</th><th>类型</th><th>大小</th><th>修改时间</th><th>操作</th></tr></thead>
+          <tbody id="fileBody"></tbody>
+        </table>
+        <div class="empty" id="fileEmpty" style="display:none">目录为空</div>
+      </section>
+
+      <!-- 基础设置 -->
+      <section class="view" id="view-basic">
+        <div class="section-title"><span>基础信息设置</span><button class="btn" id="saveBasicBtn">保存配置</button></div>
+        <div class="form-row"><label>FTP 控制端口</label><input class="input" id="cfgFtpPort" type="number"></div>
+        <div class="form-row"><label>Web 管理端口</label><input class="input" id="cfgWebPort" type="number"></div>
+        <div class="form-row"><label>PASV 被动端口范围（最小）</label><input class="input" id="cfgPasvMin" type="number"></div>
+        <div class="form-row"><label>PASV 被动端口范围（最大）</label><input class="input" id="cfgPasvMax" type="number"></div>
+        <div class="form-row"><label>数据根目录</label><input class="input" id="cfgDataDir" type="text"></div>
+        <div class="form-row"><label class="switch"><input type="checkbox" id="cfgFtps"> 启用 FTPS（需配置证书）</label></div>
+        <div class="form-row"><label>TLS 证书路径配置</label><input class="input" id="cfgTlsCert" type="text" placeholder="cert.pem"><div class="hint">证书与私钥路径（FTPS 启用时必填）</div></div>
+        <div class="form-row"><input class="input" id="cfgTlsKey" type="text" placeholder="key.pem"></div>
+        <div class="form-row"><label class="switch"><input type="checkbox" id="cfgRegister"> 允许 Web 端自助注册</label><div class="hint">关闭后将隐藏注册入口，仅管理员可创建账号</div></div>
+        <div class="hint" style="margin-top:8px">注：端口与数据目录的修改需重启服务后生效，但会即时写入 config.json。</div>
+      </section>
+
+      <!-- 系统配置 -->
+      <section class="view" id="view-system">
+        <div class="section-title"><span>系统信息</span><button class="btn ghost sm" id="refreshSysBtn">刷新</button></div>
+        <div class="grid" id="sysGrid"></div>
+        <div class="section-title" style="margin-top:26px"><span>关于</span></div>
+        <div class="card" style="max-width:520px;line-height:1.8;color:var(--muted);font-size:14px">
+          <div><b style="color:var(--text)">PhiloFTP</b> —— 轻量级内网 FTP 服务器，内置 Web 管理后台。</div>
+          <div>支持用户管理、文件浏览/上传/下载、实时进度与断点续传，零外部依赖，单二进制部署。</div>
+        </div>
+      </section>
+
+    </div>
   </div>
-</header>
 
-<div class="container">
-  <div class="page-title">系统概览</div>
-  <div class="stat-grid" id="stats"></div>
-
-  <div class="panel">
-    <div class="panel-head">
-      <h2>用户管理</h2>
-      <div class="toolbar">
-        <button class="btn btn-primary" id="addUserBtn"><span>＋</span> 新增用户</button>
-        <input class="input" id="userSearch" placeholder="搜索用户名...">
+  <!-- 用户弹层 -->
+  <div class="overlay" id="userOverlay">
+    <div class="modal">
+      <h3 id="userModalTitle">新增用户</h3>
+      <div class="form-row"><label>用户名（3-32 位，字母/数字/下划线/连字符）</label><input class="input" id="uUsername" type="text"></div>
+      <div class="form-row"><label>密码</label><input class="input" id="uPassword" type="password"><div class="hint" id="pwHint"></div></div>
+      <div class="form-row"><label>主目录（留空则默认与用户名相同）</label><input class="input" id="uHome" type="text" placeholder="例如 alice"></div>
+      <label class="switch" style="margin-bottom:18px"><input type="checkbox" id="uReadOnly"> 只读用户（禁止上传/删除）</label>
+      <div class="form-actions">
+        <button class="btn ghost" id="userCancel">取消</button>
+        <button class="btn" id="userSave">保存</button>
       </div>
     </div>
-    <table class="grid" id="userTable">
-      <thead><tr><th>用户名</th><th>根目录</th><th>权限</th><th>状态</th><th>操作</th></tr></thead>
-      <tbody></tbody>
-    </table>
   </div>
 
-  <div class="panel">
-    <div class="panel-head">
-      <h2>文件管理</h2>
-      <div class="toolbar">
-        <select class="select" id="fileUser"></select>
-        <button class="btn btn-default" id="mkdirBtn">新建目录</button>
-        <button class="btn btn-default" id="uploadBtn">上传</button>
-        <button class="btn btn-default" id="batchUploadBtn">批量上传</button>
-        <button class="btn btn-default" id="refreshBtn">刷新</button>
+  <!-- 新建目录弹层 -->
+  <div class="overlay" id="mkdirOverlay">
+    <div class="modal">
+      <h3>新建目录</h3>
+      <div class="form-row"><label>目录名称</label><input class="input" id="dirName" type="text"></div>
+      <div class="form-actions">
+        <button class="btn ghost" id="mkdirCancel">取消</button>
+        <button class="btn" id="mkdirSave">创建</button>
       </div>
     </div>
-    <div class="path-bar" id="pathBar"></div>
-    <div class="file-grid" id="fileGrid"></div>
   </div>
-</div>
 
-<!-- 用户编辑弹窗 -->
-<div class="overlay hidden" id="userDialog">
-  <div class="modal">
-    <div class="modal-head" id="userDialogTitle">新增用户</div>
-    <div class="modal-body">
-      <div class="form-row"><label>用户名</label><input class="input" id="uName" placeholder="登录用户名"></div>
-      <div class="form-row"><label>密码</label><input class="input" id="uPass" type="password" placeholder="登录密码"></div>
-      <div class="form-row"><label>根目录（相对 data 目录）</label><input class="input" id="uHome" placeholder="例如 alice"></div>
-      <div class="form-row"><label class="checkbox"><input type="checkbox" id="uRO"> 只读（不可上传/删除/建目录）</label></div>
-      <div class="form-row"><label class="checkbox"><input type="checkbox" id="uEnabled" checked> 启用该用户</label></div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-default" id="userCancel">取消</button>
-      <button class="btn btn-primary" id="userSave">保存</button>
+  <div class="toast" id="toast"></div>
+  <div class="progress-mask" id="progressMask">
+    <div class="progress-box">
+      <div id="progressName">下载中…</div>
+      <div class="progress-bar"><i id="progressFill"></i></div>
+      <div class="progress-text"><span id="progressPct">0%</span><span id="progressSpeed"></span></div>
     </div>
   </div>
-</div>
-
-<!-- 新建目录弹窗 -->
-<div class="overlay hidden" id="mkdirDialog">
-  <div class="modal" style="width:420px">
-    <div class="modal-head">新建目录</div>
-    <div class="modal-body"><div class="form-row"><label>目录名</label><input class="input" id="dirName" placeholder="新目录名称"></div></div>
-    <div class="modal-foot">
-      <button class="btn btn-default" id="mkdirCancel">取消</button>
-      <button class="btn btn-primary" id="mkdirSave">创建</button>
-    </div>
-  </div>
-</div>
-
-<input type="file" id="uploadInput" class="hidden">
-<input type="file" id="batchInput" class="hidden" multiple>
-
-<div id="toast"></div>
 
 <script>
-let currentPath = "";
-let currentUser = "";
-let editing = null;
+const A = (p,o)=>fetch(p,Object.assign({headers:{'Content-Type':'application/json'}},o)).then(r=>r.json().then(d=>({ok:r.ok,data:d})));
+const G = p => A(p,{method:'GET'});
+const QS = s => new URLSearchParams(s).toString();
+function toast(msg, ok){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show '+(ok?'ok':'err');setTimeout(()=>t.className='toast',2600);}
+function esc(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fmtSize(n){if(n==null)return '-';const u=['B','KB','MB','GB','TB'];let i=0;let v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return v.toFixed(i?1:0)+' '+u[i];}
+function showError(elId, msg){const el=document.getElementById(elId); if(el) el.innerHTML='<div class="empty" style="display:block">'+esc(msg)+'</div>';}
 
-function notify(msg, type) {
-  type = type || 'success';
-  const box = document.getElementById('toast');
-  box.textContent = msg;
-  box.style.background = type === 'error' ? 'var(--danger)' : (type === 'warning' ? 'var(--warning)' : 'var(--brand)');
-  box.style.opacity = '1';
-  clearTimeout(box._t);
-  box._t = setTimeout(() => { box.style.opacity = '0'; }, 2200);
-}
+// 全局错误兜底，防止 API 抛错导致页面空白
+window.onerror=(msg,src,line)=>{toast('JS 错误: '+msg+' (line '+line+')',false);};
 
-// ===== 登录守卫 =====
-async function bootstrap() {
-  try {
-    const res = await fetch('/api/me');
-    if (!res.ok) { window.location.href = '/login'; return; }
-    const me = await res.json();
-    document.getElementById('curUser').textContent = me.username + (me.read_only ? '（只读）' : '');
-    document.getElementById('avatar').textContent = (me.username[0] || 'U').toUpperCase();
-  } catch (e) { window.location.href = '/login'; }
-}
+// 登录守卫
+(async()=>{
+  try{
+    const r=await G('/api/me');
+    if(!r.ok){location.href='/login';return;}
+    document.getElementById('curUser').textContent=r.data.username||'-';
+    await loadOverview();
+  }catch(e){console.error(e); showError('ovGrid','页面初始化失败: '+e.message);}
+})();
 
-document.getElementById('logoutBtn').onclick = async () => {
-  await fetch('/api/logout', { method: 'POST' });
-  window.location.href = '/login';
-};
-
-async function loadStats() {
-  try {
-    const [st, sys] = await Promise.all([
-      fetch('/api/status').then(r => r.json()),
-      fetch('/api/system').then(r => r.json())
-    ]);
-    const cards = [
-      { label: 'FTP 端口', value: st.ftp_port },
-      { label: 'Web 端口', value: st.web_port },
-      { label: '用户数', value: st.user_count },
-      { label: 'PASV 端口', value: st.pasv_ports },
-      { label: 'FTPS', value: st.ftps ? '启用' : '禁用' },
-      { label: '运行时长', value: st.uptime },
-      { label: 'Go 版本', value: sys.go_version },
-      { label: 'Goroutines', value: sys.goroutines },
-    ];
-    document.getElementById('stats').innerHTML = cards.map(c =>
-      '<div class="stat-card"><div class="label">' + c.label + '</div><div class="value">' + c.value + '</div></div>'
-    ).join('');
-  } catch (e) { notify('加载状态失败', 'error'); }
-}
-
-async function loadUsers() {
-  const q = document.getElementById('userSearch').value;
-  const users = await (await fetch('/api/users')).json();
-  const list = q ? users.filter(u => u.username.includes(q)) : users;
-  const tb = document.querySelector('#userTable tbody');
-  tb.innerHTML = list.map(u => {
-    const perm = u.read_only ? '<span class="tag tag-warning">只读</span>' : '<span class="tag tag-success">可写</span>';
-    const status = u.enabled ? '<span class="tag tag-success">启用</span>' : '<span class="tag tag-default">停用</span>';
-    return '<tr>' +
-      '<td>' + escapeHtml(u.username) + '</td>' +
-      '<td><code>' + escapeHtml(u.home) + '</code></td>' +
-      '<td>' + perm + '</td>' +
-      '<td>' + status + '</td>' +
-      '<td><div class="op-btns">' +
-        '<button class="btn btn-default btn-sm" onclick="editUser(\'' + escapeAttr(u.username) + '\')">编辑</button> ' +
-        '<button class="btn btn-danger btn-sm" onclick="delUser(\'' + escapeAttr(u.username) + '\')">删除</button>' +
-      '</div></td>' +
-      '</tr>';
-  }).join('');
-}
-
-function escapeHtml(s) { return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
-function escapeAttr(s) { return String(s).replace(/'/g, "\\'"); }
-
-async function loadFiles() {
-  if (!currentUser) return;
-  const res = await fetch('/api/files?user=' + encodeURIComponent(currentUser) + '&path=' + encodeURIComponent(currentPath));
-  const data = await res.json();
-  renderPathBar();
-  const grid = document.getElementById('fileGrid');
-  const items = data.items || [];
-  if (!items.length) { grid.innerHTML = '<div class="empty">空目录</div>'; return; }
-  grid.innerHTML = items.map(it =>
-    '<div class="file-item" ' + (it.is_dir ? 'ondblclick="enterDir(\'' + escapeAttr(it.name) + '\')"' : '') + '>' +
-      (it.is_dir ? '' : '<div class="dl" title="下载" onclick="event.stopPropagation();downloadFile(\'' + escapeAttr(it.name) + '\')">⬇</div>') +
-      '<div class="icon">' + (it.is_dir ? '📁' : iconFor(it.name)) + '</div>' +
-      '<div class="name">' + escapeHtml(it.name) + '</div>' +
-      '<div class="meta">' + (it.is_dir ? '目录' : formatSize(it.size)) + '</div>' +
-    '</div>'
-  ).join('');
-}
-
-function iconFor(name) {
-  const ext = (name.split('.').pop() || '').toLowerCase();
-  const map = {
-    pdf: '📕', doc: '📘', docx: '📘', xls: '📗', xlsx: '📗', ppt: '📙', pptx: '📙',
-    zip: '🗜️', rar: '🗜️', '7z': '🗜️', tar: '🗜️', gz: '🗜️',
-    png: '🖼️', jpg: '🖼️', jpeg: '🖼️', gif: '🖼️', bmp: '🖼️', webp: '🖼️', svg: '🖼️',
-    mp3: '🎵', wav: '🎵', mp4: '🎬', avi: '🎬', mov: '🎬', mkv: '🎬',
-    txt: '📄', md: '📄', json: '📄', go: '📄', js: '📄', html: '📄', css: '📄',
-    exe: '⚙️', apk: '📱', iso: '💿'
-  };
-  return map[ext] || '📄';
-}
-
-function formatSize(b) {
-  if (b < 1024) return b + ' B';
-  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
-  if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
-  return (b / 1073741824).toFixed(2) + ' GB';
-}
-
-function renderPathBar() {
-  const bar = document.getElementById('pathBar');
-  const parts = currentPath ? currentPath.split('/') : [];
-  let html = '<span class="crumb" onclick="gotoCrumb(-1)">🏠 ' + escapeHtml(currentUser) + '</span>';
-  let acc = '';
-  parts.forEach((p, i) => {
-    acc += (acc ? '/' : '') + p;
-    html += '<span> / </span><span class="crumb" onclick="gotoCrumb(' + i + ')">' + escapeHtml(p) + '</span>';
-  });
-  bar.innerHTML = html;
-}
-function gotoCrumb(idx) {
-  const parts = currentPath ? currentPath.split('/') : [];
-  if (idx < 0) { currentPath = ''; } else { currentPath = parts.slice(0, idx + 1).join('/'); }
-  loadFiles();
-}
-
-function enterDir(name) { currentPath = currentPath ? currentPath + '/' + name : name; loadFiles(); }
-
-// ===== 下载（带进度条）=====
-async function downloadFile(name) {
-  const fullPath = currentPath ? currentPath + '/' + name : name;
-  const url = '/api/download?user=' + encodeURIComponent(currentUser) + '&path=' + encodeURIComponent(fullPath);
-  const toast = document.createElement('div');
-  toast.className = 'dl-toast';
-  toast.innerHTML =
-    '<div class="dl-name"><span>' + escapeHtml(name) + '</span><span class="dl-pct">0%</span></div>' +
-    '<div class="dl-bar"><i></i></div>' +
-    '<div class="dl-meta"><span class="dl-done">0 B</span><span class="dl-total">...</span></div>';
-  document.body.appendChild(toast);
-  const bar = toast.querySelector('.dl-bar > i');
-  const pct = toast.querySelector('.dl-pct');
-  const doneEl = toast.querySelector('.dl-done');
-  const totalEl = toast.querySelector('.dl-total');
-
-  try {
-    const resp = await fetch(url);
-    if (!resp.ok) { notify('下载失败：' + (resp.status === 404 ? '文件不存在' : resp.status), 'error'); toast.remove(); return; }
-    const total = parseInt(resp.headers.get('Content-Length') || '0', 10);
-    totalEl.textContent = total ? formatSize(total) : '';
-    if (!resp.body) { // 不支持流式，直接下载
-      const blob = await resp.blob();
-      triggerBlob(blob, name);
-      bar.style.width = '100%'; pct.textContent = '100%'; doneEl.textContent = formatSize(blob.size);
-      setTimeout(() => toast.remove(), 1500);
-      return;
-    }
-    const reader = resp.body.getReader();
-    let received = 0;
-    const chunks = [];
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      received += value.length;
-      const p = total ? Math.floor((received / total) * 100) : -1;
-      bar.style.width = (p < 0 ? 100 : p) + '%';
-      pct.textContent = (p < 0 ? '处理中' : p + '%');
-      doneEl.textContent = formatSize(received);
-    }
-    const blob = new Blob(chunks);
-    triggerBlob(blob, name);
-    bar.style.width = '100%'; pct.textContent = '完成';
-    setTimeout(() => toast.remove(), 1500);
-  } catch (e) {
-    notify('下载出错', 'error');
-    toast.remove();
-  }
-}
-function triggerBlob(blob, name) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
-}
-
-async function loadFileUsers() {
-  const users = await (await fetch('/api/users')).json();
-  const sel = document.getElementById('fileUser');
-  sel.innerHTML = users.map(u => '<option value="' + escapeAttr(u.username) + '">' + escapeHtml(u.username) + '</option>').join('');
-  if (users.length) { currentUser = users[0].username; }
-}
-
-// 用户弹窗
-document.getElementById('addUserBtn').onclick = () => openUserModal(null);
-document.getElementById('userCancel').onclick = () => closeOverlay('userDialog');
-document.getElementById('userSave').onclick = async () => {
-  const u = {
-    username: document.getElementById('uName').value,
-    password: document.getElementById('uPass').value,
-    home: document.getElementById('uHome').value || document.getElementById('uName').value,
-    read_only: document.getElementById('uRO').checked,
-    enabled: document.getElementById('uEnabled').checked,
-  };
-  if (!u.username || !u.password) { notify('用户名和密码必填', 'warning'); return; }
-  const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(u) });
-  if (res.ok) { notify('已保存'); closeOverlay('userDialog'); loadUsers(); loadFileUsers(); }
-  else notify('保存失败', 'error');
-};
-
-async function editUser(name) {
-  const users = await (await fetch('/api/users')).json();
-  const u = users.find(x => x.username === name);
-  document.getElementById('userDialogTitle').textContent = '编辑用户';
-  document.getElementById('uName').value = u.username;
-  document.getElementById('uName').setAttribute('disabled', '');
-  document.getElementById('uPass').value = u.password;
-  document.getElementById('uHome').value = u.home;
-  document.getElementById('uRO').checked = u.read_only;
-  document.getElementById('uEnabled').checked = u.enabled;
-  openOverlay('userDialog');
-}
-async function delUser(name) {
-  if (!confirm('确认删除用户 ' + name + '？')) return;
-  const res = await fetch('/api/users/' + encodeURIComponent(name), { method: 'DELETE' });
-  if (res.ok) { notify('已删除'); loadUsers(); } else notify('删除失败', 'error');
-}
-
-// 文件操作
-document.getElementById('refreshBtn').onclick = loadFiles;
-document.getElementById('fileUser').addEventListener('change', (e) => { currentUser = e.target.value; currentPath = ''; loadFiles(); });
-document.getElementById('mkdirBtn').onclick = () => openOverlay('mkdirDialog');
-document.getElementById('mkdirCancel').onclick = () => closeOverlay('mkdirDialog');
-document.getElementById('mkdirSave').onclick = async () => {
-  const name = document.getElementById('dirName').value;
-  if (!name) return;
-  const res = await fetch('/api/mkdir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: currentUser, path: currentPath, name }) });
-  if (res.ok) { notify('已创建'); closeOverlay('mkdirDialog'); loadFiles(); }
-  else notify('创建失败', 'error');
-};
-document.getElementById('uploadBtn').onclick = () => document.getElementById('uploadInput').click();
-document.getElementById('uploadInput').onchange = async (e) => {
-  const file = e.target.files[0]; if (!file) return;
-  const fd = new FormData(); fd.append('user', currentUser); fd.append('path', currentPath); fd.append('file', file);
-  const res = await fetch('/api/upload', { method: 'POST', body: fd });
-  if (res.ok) { notify('已上传'); loadFiles(); } else notify('上传失败', 'error');
-  e.target.value = '';
-};
-document.getElementById('batchUploadBtn').onclick = () => document.getElementById('batchInput').click();
-document.getElementById('batchInput').onchange = async (e) => {
-  const files = e.target.files; if (!files.length) return;
-  const fd = new FormData(); fd.append('user', currentUser); fd.append('path', currentPath);
-  for (const f of files) fd.append('files', f);
-  const res = await fetch('/api/upload/batch', { method: 'POST', body: fd });
-  if (res.ok) { notify('批量上传完成'); loadFiles(); } else notify('上传失败', 'error');
-  e.target.value = '';
-};
-
-document.getElementById('userSearch').addEventListener('input', loadUsers);
-
-function openOverlay(id) { document.getElementById(id).classList.remove('hidden'); }
-function closeOverlay(id) { document.getElementById(id).classList.add('hidden'); }
-document.querySelectorAll('.overlay').forEach(o => {
-  o.addEventListener('click', (e) => { if (e.target === o) o.classList.add('hidden'); });
+// —— 菜单切换 ——
+const titles={overview:'概览',users:'用户管理',files:'文件管理',basic:'基础设置',system:'系统配置'};
+const crumbs={overview:'',users:'',files:'',basic:'修改端口/FTPS/注册等',system:'运行时信息'};
+document.getElementById('nav').addEventListener('click',e=>{
+  const it=e.target.closest('.nav-item'); if(!it) return;
+  const v=it.dataset.view;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n===it));
+  document.querySelectorAll('.view').forEach(s=>s.classList.toggle('active',s.id==='view-'+v));
+  document.getElementById('viewTitle').textContent=titles[v];
+  document.getElementById('viewCrumb').textContent=crumbs[v]||'';
+  if(v==='overview') loadOverview();
+  if(v==='users') loadUsers();
+  if(v==='files') loadFiles('/');
+  if(v==='basic') loadBasic();
+  if(v==='system') loadSystem();
 });
 
-bootstrap();
-loadStats(); loadUsers(); loadFileUsers().then(loadFiles);
-setInterval(() => { loadStats(); loadFiles(); }, 10000);
+// —— 概览 ——
+async function loadOverview(){
+  try{
+    const [s,u]=await Promise.all([G('/api/status'),G('/api/users')]);
+    if(!s.ok||!u.ok){showError('ovGrid','加载概览数据失败'); return;}
+    const rows=[
+      {k:'FTP 端口',v:s.data.ftp_port,ico:'🔌'},
+      {k:'Web 端口',v:s.data.web_port,ico:'🌐'},
+      {k:'用户总数',v:Array.isArray(u.data)?u.data.length:s.data.user_count,ico:'👥'},
+      {k:'PASV 端口',v:s.data.pasv_ports,ico:'📡'},
+      {k:'FTPS',v:s.data.ftps?'已启用':'未启用',ico:'🔒'},
+      {k:'运行时长',v:s.data.uptime,ico:'⏱️'},
+    ];
+    document.getElementById('ovGrid').innerHTML=rows.map(r=>
+      '<div class="card"><div class="k">'+r.ico+' '+r.k+'</div><div class="v">'+esc(String(r.v))+'</div></div>').join('');
+  }catch(e){console.error(e); showError('ovGrid','加载概览失败: '+e.message);}
+}
+
+// —— 用户管理 ——
+async function loadUsers(){
+  try{
+    const r=await G('/api/users'); if(!r.ok){showError('userBody','加载用户失败'); return;}
+    const list=r.data; const body=document.getElementById('userBody');
+    document.getElementById('userEmpty').style.display=list.length?'none':'block';
+    body.innerHTML=list.map(u=>
+      '<tr><td>'+esc(u.username)+'</td><td>'+esc(u.home||'-')+'</td>'+
+      '<td><span class="tag '+(u.enabled?'ok':'off')+'">'+(u.enabled?'启用':'禁用')+'</span></td>'+
+      '<td><span class="tag '+(u.read_only?'ro':'ok')+'">'+(u.read_only?'只读':'可读写')+'</span></td>'+
+      '<td><button class="btn ghost sm" onclick="delUser(\''+esc(u.username)+'\')">删除</button></td></tr>').join('');
+  }catch(e){console.error(e); showError('userBody','加载用户失败: '+e.message);}
+}
+function openUserModal(){document.getElementById('userModalTitle').textContent='新增用户';
+  ['uUsername','uPassword','uHome'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('uReadOnly').checked=false;document.getElementById('pwHint').textContent='';
+  document.getElementById('userOverlay').classList.add('show');}
+document.getElementById('addUserBtn').addEventListener('click',openUserModal);
+document.getElementById('userCancel').addEventListener('click',()=>document.getElementById('userOverlay').classList.remove('show'));
+document.getElementById('uPassword').addEventListener('input',e=>{
+  const v=e.target.value;let n=0;if(v.length>=8)n++;if(/[a-z]/.test(v)&&/[A-Z]/.test(v))n++;
+  if(/\d/.test(v))n++;if(/[^A-Za-z0-9]/.test(v))n++;
+  const map=['很弱','弱','中等','强','很强'];document.getElementById('pwHint').textContent=v?'强度：'+map[n]:'';});
+document.getElementById('userSave').addEventListener('click',async()=>{
+  const u={username:document.getElementById('uUsername').value.trim(),
+    password:document.getElementById('uPassword').value,
+    home:document.getElementById('uHome').value.trim(),
+    read_only:document.getElementById('uReadOnly').checked};
+  if(u.username.length<3){toast('用户名至少 3 个字符',false);return;}
+  if(u.password.length<6){toast('密码至少 6 个字符',false);return;}
+  const r=await A('/api/users',{method:'POST',body:JSON.stringify(u)});
+  if(r.ok){toast('用户已保存',true);document.getElementById('userOverlay').classList.remove('show');loadUsers();}
+  else toast(r.data.error||'保存失败',false);
+});
+async function delUser(name){
+  if(!confirm('确认删除用户 '+name+' ？'))return;
+  const r=await A('/api/users/'+encodeURIComponent(name),{method:'DELETE'});
+  if(r.ok){toast('已删除',true);loadUsers();}else toast(r.data.error||'删除失败',false);
+}
+
+// —— 文件管理 ——
+let curPath='/';
+async function loadFiles(path){
+  try{
+    curPath=path||'/'; document.getElementById('filePath').textContent=curPath;
+    const r=await G('/api/files?path='+encodeURIComponent(curPath)); if(!r.ok){showError('fileBody','加载文件列表失败'); return;}
+    const items=r.data.items||[]; const body=document.getElementById('fileBody');
+    document.getElementById('fileEmpty').style.display=items.length?'none':'block';
+    body.innerHTML=items.map(it=>{
+      const type=it.is_dir?'文件夹':(it.name.split('.').pop().toUpperCase()||'文件');
+      const openPath=curPath==='/'?('/'+it.name):(curPath+'/'+it.name);
+      const act=it.is_dir
+        ? '<a class="btn ghost sm" onclick="loadFiles(\''+openPath+'\')">打开</a>'
+        : '<a class="btn ghost sm" onclick="downloadFile(\''+it.name+'\')">下载</a>';
+      return '<tr><td>'+esc(it.name)+'</td><td>'+type+'</td><td>'+(it.is_dir?'-':fmtSize(it.size))+'</td><td>'+esc(it.mod_time||'')+'</td><td>'+act+'</td></tr>';
+    }).join('');
+  }catch(e){console.error(e); showError('fileBody','加载文件列表失败: '+e.message);}
+}
+document.getElementById('refreshBtn').addEventListener('click',()=>loadFiles(curPath));
+document.getElementById('uploadInput').addEventListener('change',async e=>{
+  const files=e.target.files; if(!files.length)return;
+  const fd=new FormData();
+  for(const f of files)fd.append('files',f);
+  fd.append('path',curPath);
+  const btn=e.target.previousElementSibling; const old=btn.textContent; btn.innerHTML='<span class="spin"></span>上传中';
+  const r=await fetch('/api/upload/batch',{method:'POST',body:fd}).then(x=>x.json());
+  btn.textContent=old; e.target.value='';
+  if(r.ok){toast('上传成功（'+r.count+' 个文件）',true);loadFiles(curPath);}else toast(r.error||'上传失败',false);
+});
+document.getElementById('mkdirBtn').addEventListener('click',()=>document.getElementById('mkdirOverlay').classList.add('show'));
+document.getElementById('mkdirCancel').addEventListener('click',()=>document.getElementById('mkdirOverlay').classList.remove('show'));
+document.getElementById('mkdirSave').addEventListener('click',async()=>{
+  const name=document.getElementById('dirName').value.trim(); if(!name){toast('名称不能为空',false);return;}
+  const r=await A('/api/mkdir',{method:'POST',body:JSON.stringify({path:curPath,name})});
+  if(r.ok){toast('已创建',true);document.getElementById('mkdirOverlay').classList.remove('show');document.getElementById('dirName').value='';loadFiles(curPath);}
+  else toast(r.data.error||'创建失败',false);
+});
+async function downloadFile(name){
+  const rel=curPath==='/'?('/'+name):(curPath+'/'+name);
+  const mask=document.getElementById('progressMask'); mask.classList.add('show');
+  const fill=document.getElementById('progressFill'); const pct=document.getElementById('progressPct');
+  const spd=document.getElementById('progressSpeed'); document.getElementById('progressName').textContent='下载：'+name;
+  fill.style.width='0%'; pct.textContent='0%'; spd.textContent='';
+  try{
+    const resp=await fetch('/api/download?path='+encodeURIComponent(rel));
+    if(!resp.ok){toast('下载失败',false);mask.classList.remove('show');return;}
+    const total=+resp.headers.get('Content-Length')||0;
+    const reader=resp.body.getReader(); let rec=0; let last=rec; let t0=Date.now();
+    const chunks=[];
+    while(true){const {done,value}=await reader.read();if(done)break;chunks.push(value);rec+=value.length;
+      const p=total?Math.floor(rec/total*100):0; fill.style.width=p+'%'; pct.textContent=p+'%';
+      const dt=(Date.now()-t0)/1000; if(dt>0.5){spd.textContent=fmtSize((rec-last)/dt)+'/s'; last=rec; t0=Date.now();}}
+    const blob=new Blob(chunks);
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click();
+    URL.revokeObjectURL(a.href); toast('下载完成',true);
+  }catch(err){toast('下载出错',false);}
+  setTimeout(()=>mask.classList.remove('show'),400);
+}
+
+// —— 基础设置 ——
+async function loadBasic(){
+  try{
+    const r=await G('/api/config'); if(!r.ok){toast('加载配置失败',false);return;}
+    const c=r.data;
+    document.getElementById('cfgFtpPort').value=c.ftp_port||'';
+    document.getElementById('cfgWebPort').value=c.web_port||'';
+    document.getElementById('cfgPasvMin').value=c.pasv_min_port||'';
+    document.getElementById('cfgPasvMax').value=c.pasv_max_port||'';
+    document.getElementById('cfgDataDir').value=c.data_dir||'';
+    document.getElementById('cfgFtps').checked=!!c.enable_ftps;
+    document.getElementById('cfgTlsCert').value=c.tls_cert||'';
+    document.getElementById('cfgTlsKey').value=c.tls_key||'';
+    document.getElementById('cfgRegister').checked=c.allow_register!==false;
+  }catch(e){console.error(e); toast('加载配置失败: '+e.message,false);}
+}
+document.getElementById('saveBasicBtn').addEventListener('click',async()=>{
+  const body={
+    ftp_port:+document.getElementById('cfgFtpPort').value,
+    web_port:+document.getElementById('cfgWebPort').value,
+    pasv_min_port:+document.getElementById('cfgPasvMin').value,
+    pasv_max_port:+document.getElementById('cfgPasvMax').value,
+    data_dir:document.getElementById('cfgDataDir').value.trim(),
+    enable_ftps:document.getElementById('cfgFtps').checked,
+    tls_cert:document.getElementById('cfgTlsCert').value.trim(),
+    tls_key:document.getElementById('cfgTlsKey').value.trim(),
+    allow_register:document.getElementById('cfgRegister').checked,
+  };
+  const r=await A('/api/config',{method:'PUT',body:JSON.stringify(body)});
+  if(r.ok)toast(r.data.message||'已保存',true); else toast(r.data.error||'保存失败',false);
+});
+
+// —— 系统配置 ——
+async function loadSystem(){
+  try{
+    const r=await G('/api/system'); if(!r.ok){showError('sysGrid','加载系统信息失败'); return;}
+    const d=r.data;
+    const rows=[
+      {k:'Go 版本',v:d.go_version},{k:'运行时长',v:d.uptime},{k:'协程数',v:d.goroutines},
+      {k:'数据根目录',v:d.data_dir},{k:'配置文件',v:d.config_path},{k:'用户文件数',v:d.user_count},
+    ];
+    document.getElementById('sysGrid').innerHTML=rows.map(r=>
+      '<div class="card"><div class="k">'+r.k+'</div><div class="v" style="font-size:16px;word-break:break-all">'+esc(String(r.v))+'</div></div>').join('');
+  }catch(e){console.error(e); showError('sysGrid','加载系统信息失败: '+e.message);}
+}
+document.getElementById('refreshSysBtn').addEventListener('click',loadSystem);
+
+// —— 退出 ——
+document.getElementById('logoutBtn').addEventListener('click',async()=>{
+  await A('/api/logout',{method:'POST'}); location.href='/login';
+});
 </script>
 </body>
 </html>`

@@ -47,6 +47,8 @@ func StartWeb(cfg *config.Config, store *repository.UserStore) (string, error) {
 	authed.Use(auth.RequireAuth())
 	authed.GET("/api/status", statusHandler(cfg, store))
 	authed.GET("/api/system", systemHandler)
+	authed.GET("/api/config", func(c *gin.Context) { configHandler(c, cfg) })
+	authed.PUT("/api/config", func(c *gin.Context) { updateConfigHandler(c, cfg) })
 	authed.GET("/api/users", usersHandler(store))
 	authed.POST("/api/users", upsertUserHandler(store))
 	authed.DELETE("/api/users/:username", deleteUserHandler(store))
@@ -70,8 +72,16 @@ func StartWeb(cfg *config.Config, store *repository.UserStore) (string, error) {
 	protected.GET("/", func(c *gin.Context) { c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(DashboardHTML)) })
 	protected.GET("/dashboard", func(c *gin.Context) { c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(DashboardHTML)) })
 
-	go func() { _ = r.Run(fmt.Sprintf(":%d", cfg.WebPort)) }()
-	return fmt.Sprintf(":%d", cfg.WebPort), nil
+	addr := fmt.Sprintf(":%d", cfg.WebPort)
+	errCh := make(chan error, 1)
+	go func() { errCh <- r.Run(addr) }()
+	// 等待至多 1.5s 确认是否成功绑定；绑定失败（如端口被占用）立即返回错误
+	select {
+	case err := <-errCh:
+		return addr, fmt.Errorf("Web 服务启动失败: %w", err)
+	case <-time.After(1500 * time.Millisecond):
+		return addr, nil
+	}
 }
 
 func corsMiddleware() gin.HandlerFunc {
@@ -100,6 +110,29 @@ func statusHandler(cfg *config.Config, store *repository.UserStore) gin.HandlerF
 			"user_count": len(store.List()),
 		})
 	}
+}
+
+// configHandler 返回当前配置快照（供基础设置页读取）
+func configHandler(c *gin.Context, cfg *config.Config) {
+	c.JSON(http.StatusOK, cfg.ToAPI())
+}
+
+// updateConfigHandler 接收配置变更并持久化（端口等需重启生效，但已写入 config.json）
+func updateConfigHandler(c *gin.Context, cfg *config.Config) {
+	var body map[string]interface{}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请求格式错误"})
+		return
+	}
+	if err := cfg.UpdateFromMap(body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := cfg.Save(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存配置失败: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "配置已保存，部分端口类修改需重启生效"})
 }
 
 // registerHandler 处理 Web 端注册（创建一个可写普通用户）

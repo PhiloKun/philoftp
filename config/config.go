@@ -24,6 +24,7 @@ type Config struct {
 	EnableFTPS  bool   `json:"enable_ftps"` // 是否启用 FTPS
 	AllowRegister bool `json:"allow_register"` // 是否允许 Web 端自助注册（默认 true，生产可关闭）
 	mu          sync.RWMutex
+	configPath  string // 配置文件路径，供运行时保存使用
 }
 
 // DefaultConfig 返回默认配置
@@ -71,7 +72,19 @@ func LoadConfig(path string) (*Config, error) {
 	if c.DataDir == "" {
 		c.DataDir = "data"
 	}
+	c.configPath = path
 	return c, nil
+}
+
+// Save 将当前配置持久化回加载时的配置文件路径（写锁保护）
+func (c *Config) Save() error {
+	c.mu.RLock()
+	data, err := json.MarshalIndent(c, "", "  ")
+	c.mu.RUnlock()
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(c.configPath, data, 0644)
 }
 
 // SaveConfig 将配置持久化为 JSON
@@ -131,4 +144,97 @@ func (c *Config) AllowRegisterEnabled() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.AllowRegister
+}
+
+// UpdateFromMap 在写锁保护下，从字段映射中更新可热改的配置项。
+// 仅接受白名单字段，避免被注入未知字段。端口/数据目录等修改需重启生效，
+// 但会被持久化到 config.json，下次启动自动应用。
+func (c *Config) UpdateFromMap(m map[string]interface{}) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if v, ok := m["ftp_port"]; ok {
+		if n, ok := toInt(v); ok && n > 0 && n < 65536 {
+			c.FTPPort = n
+		} else {
+			return fmt.Errorf("FTP 端口非法")
+		}
+	}
+	if v, ok := m["web_port"]; ok {
+		if n, ok := toInt(v); ok && n > 0 && n < 65536 {
+			c.WebPort = n
+		} else {
+			return fmt.Errorf("Web 端口非法")
+		}
+	}
+	if v, ok := m["pasv_min_port"]; ok {
+		if n, ok := toInt(v); ok && n > 0 && n < 65536 {
+			c.PASVMinPort = n
+		} else {
+			return fmt.Errorf("PASV 起始端口非法")
+		}
+	}
+	if v, ok := m["pasv_max_port"]; ok {
+		if n, ok := toInt(v); ok && n > 0 && n < 65536 {
+			c.PASVMaxPort = n
+		} else {
+			return fmt.Errorf("PASV 结束端口非法")
+		}
+	}
+	if v, ok := m["data_dir"]; ok {
+		if s, ok := v.(string); ok && s != "" {
+			c.DataDir = s
+		} else {
+			return fmt.Errorf("数据目录非法")
+		}
+	}
+	if v, ok := m["enable_ftps"]; ok {
+		c.EnableFTPS = toBool(v)
+	}
+	if v, ok := m["allow_register"]; ok {
+		c.AllowRegister = toBool(v)
+	}
+	if v, ok := m["tls_cert"]; ok {
+		if s, ok := v.(string); ok {
+			c.TLSCert = s
+		} else {
+			return fmt.Errorf("TLS 证书路径非法")
+		}
+	}
+	if v, ok := m["tls_key"]; ok {
+		if s, ok := v.(string); ok {
+			c.TLSKey = s
+		} else {
+			return fmt.Errorf("TLS 私钥路径非法")
+		}
+	}
+	return nil
+}
+
+// toInt 从各种数字类型安全转为 int
+func toInt(v interface{}) (int, bool) {
+	switch n := v.(type) {
+	case int:
+		return n, true
+	case int64:
+		return int(n), true
+	case float64:
+		return int(n), true
+	case json.Number:
+		i, err := n.Int64()
+		if err != nil {
+			return 0, false
+		}
+		return int(i), true
+	}
+	return 0, false
+}
+
+func toBool(v interface{}) bool {
+	switch b := v.(type) {
+	case bool:
+		return b
+	case string:
+		return b == "true" || b == "1"
+	}
+	return false
 }

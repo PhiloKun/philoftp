@@ -7,9 +7,14 @@ PhiloFTP —— 内网 FTP 服务器，带 Gin Web 管理端（用户管理、�
 源码按职责拆分为内部包，根目录 `main.go` 组装启动：
 - `model/`      → `User` 模型 + `ResolveHome`
 - `config/`     → `Config`、`LoadConfig/SaveConfig`、`DataDirOf`、`ToAPI`、`StartTime`
-- `repository/` → `UserStore`（用户 JSON 持久化，读写锁）
+- `repository/` → `UserStore`（用户 JSON 持久化，读写锁；`Upsert`/`Delete` 使用 `saveLocked()` 避免写锁内再次 RLock 死锁）
 - `service/`    → `StartFTP` + FTP 文件系统驱动（goftp/server）
-- `handler/`    → `StartWeb`（Gin API）+ `DashboardHTML`（内置页面）
+- `handler/`    → `StartWeb`（Gin API）+ `DashboardHTML`（内置左侧菜单 SPA；`StartWeb` 会在绑定失败时返回错误，避免 main 死锁）
+
+## 数据存储
+本项目不使用 SQLite；用户与配置均使用 JSON 文件：
+- 用户：`configs/users.json`（由 `repository/userstore.go` 管理）
+- 配置：`configs/config.json`（`config.Config.Save()` 支持运行时热修改并持久化）
 - `configs/`    → 默认 `config.json` / `users.json`（运行时自此读取）
 - `dist/`       → 各平台构建产物（见下方"不入库"约定）
 - 构建：`Makefile`（`make build` / `make run` / `make dist`）
