@@ -25,6 +25,7 @@ type Config struct {
 	AllowRegister bool `json:"allow_register"` // 是否允许 Web 端自助注册（默认 true，生产可关闭）
 	mu          sync.RWMutex
 	configPath  string // 配置文件路径，供运行时保存使用
+	ftpReloader func(c *Config) error // 配置变更后热重载 FTP 服务的回调（由 StartFTP 注册）
 }
 
 // DefaultConfig 返回默认配置
@@ -76,11 +77,18 @@ func LoadConfig(path string) (*Config, error) {
 	return c, nil
 }
 
-// Save 将当前配置持久化回加载时的配置文件路径（写锁保护）
+// Save 将当前配置持久化回加载时的配置文件路径。
+// 调用方应已持有写锁（如 UpdateFromMap 内部），此时在写锁内直接序列化，
+// 避免 RLock/RUnlock 与写锁形成锁降级竞态；若未持锁则自动加写锁。
 func (c *Config) Save() error {
-	c.mu.RLock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.saveLocked()
+}
+
+// saveLocked 在已持有写锁的前提下持久化配置
+func (c *Config) saveLocked() error {
 	data, err := json.MarshalIndent(c, "", "  ")
-	c.mu.RUnlock()
 	if err != nil {
 		return err
 	}
@@ -146,14 +154,30 @@ func (c *Config) AllowRegisterEnabled() bool {
 	return c.AllowRegister
 }
 
+// RegisterFTPReloader 注册一个在 FTP 相关配置变更后被调用的回调，
+// 用于在不重启整个进程的前提下热重载 FTP 服务。
+func (c *Config) RegisterFTPReloader(fn func(c *Config) error) {
+	c.mu.Lock()
+	c.ftpReloader = fn
+	c.mu.Unlock()
+}
+
 // UpdateFromMap 在写锁保护下，从字段映射中更新可热改的配置项。
-// 仅接受白名单字段，避免被注入未知字段。端口/数据目录等修改需重启生效，
-// 但会被持久化到 config.json，下次启动自动应用。
+// 仅接受白名单字段，避免被注入未知字段。Web/数据目录等实时读取类字段
+// 修改后立即生效；FTP 端口、PASV 范围、FTPS 等需在绑定层生效的字段变更后，
+// 会触发已注册的 ftpReloader 执行 FTP 服务热重载（无需重启进程）。
 func (c *Config) UpdateFromMap(m map[string]interface{}) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	// 记录 FTP 相关字段变更，用于决定是否热重载
+	ftpChanged := false
+
 	if v, ok := m["ftp_port"]; ok {
 		if n, ok := toInt(v); ok && n > 0 && n < 65536 {
+			if n != c.FTPPort {
+				ftpChanged = true
+			}
 			c.FTPPort = n
 		} else {
 			return fmt.Errorf("FTP 端口非法")
@@ -168,6 +192,9 @@ func (c *Config) UpdateFromMap(m map[string]interface{}) error {
 	}
 	if v, ok := m["pasv_min_port"]; ok {
 		if n, ok := toInt(v); ok && n > 0 && n < 65536 {
+			if n != c.PASVMinPort {
+				ftpChanged = true
+			}
 			c.PASVMinPort = n
 		} else {
 			return fmt.Errorf("PASV 起始端口非法")
@@ -175,6 +202,9 @@ func (c *Config) UpdateFromMap(m map[string]interface{}) error {
 	}
 	if v, ok := m["pasv_max_port"]; ok {
 		if n, ok := toInt(v); ok && n > 0 && n < 65536 {
+			if n != c.PASVMaxPort {
+				ftpChanged = true
+			}
 			c.PASVMaxPort = n
 		} else {
 			return fmt.Errorf("PASV 结束端口非法")
@@ -188,6 +218,9 @@ func (c *Config) UpdateFromMap(m map[string]interface{}) error {
 		}
 	}
 	if v, ok := m["enable_ftps"]; ok {
+		if toBool(v) != c.EnableFTPS {
+			ftpChanged = true
+		}
 		c.EnableFTPS = toBool(v)
 	}
 	if v, ok := m["allow_register"]; ok {
@@ -195,6 +228,9 @@ func (c *Config) UpdateFromMap(m map[string]interface{}) error {
 	}
 	if v, ok := m["tls_cert"]; ok {
 		if s, ok := v.(string); ok {
+			if s != c.TLSCert {
+				ftpChanged = true
+			}
 			c.TLSCert = s
 		} else {
 			return fmt.Errorf("TLS 证书路径非法")
@@ -202,9 +238,19 @@ func (c *Config) UpdateFromMap(m map[string]interface{}) error {
 	}
 	if v, ok := m["tls_key"]; ok {
 		if s, ok := v.(string); ok {
+			if s != c.TLSKey {
+				ftpChanged = true
+			}
 			c.TLSKey = s
 		} else {
 			return fmt.Errorf("TLS 私钥路径非法")
+		}
+	}
+
+	// FTP 相关字段发生变更，触发热重载（若已注册）
+	if ftpChanged && c.ftpReloader != nil {
+		if err := c.ftpReloader(c); err != nil {
+			return fmt.Errorf("FTP 热重载失败: %w", err)
 		}
 	}
 	return nil

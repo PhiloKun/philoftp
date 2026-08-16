@@ -191,7 +191,7 @@ var DashboardHTML = `<!DOCTYPE html>
         <div class="form-row"><label>TLS 证书路径配置</label><input class="input" id="cfgTlsCert" type="text" placeholder="cert.pem"><div class="hint">证书与私钥路径（FTPS 启用时必填）</div></div>
         <div class="form-row"><input class="input" id="cfgTlsKey" type="text" placeholder="key.pem"></div>
         <div class="form-row"><label class="switch"><input type="checkbox" id="cfgRegister"> 允许 Web 端自助注册</label><div class="hint">关闭后将隐藏注册入口，仅管理员可创建账号</div></div>
-        <div class="hint" style="margin-top:8px">注：端口与数据目录的修改需重启服务后生效，但会即时写入 config.json。</div>
+        <div class="hint" style="margin-top:8px">注：保存后 FTP 服务（端口/PASV/FTPS）会即时热重载，数据目录、注册开关等实时生效；仅 Web 管理端口需重启服务进程后切换。</div>
       </section>
 
       <!-- 系统配置 -->
@@ -429,7 +429,17 @@ document.getElementById('saveBasicBtn').addEventListener('click',async()=>{
     allow_register:document.getElementById('cfgRegister').checked,
   };
   const r=await A('/api/config',{method:'PUT',body:JSON.stringify(body)});
-  if(r.ok)toast(r.data.message||'已保存',true); else toast(r.data.error||'保存失败',false);
+  if(r.ok){
+    toast(r.data.message||'已保存',true);
+    // 保存成功后立即重新拉取最新配置与状态，刷新界面（无需刷新页面）
+    try{ await loadBasic(); loadOverview(); }catch(e){ console.error(e); }
+    // Web 端口变更需重启进程方可切换监听，提示用户
+    if(r.data&&r.data.web_port_changed){
+      toast('Web 端口已写入配置，请重启服务进程后于新端口访问',true);
+    }
+  } else {
+    toast(r.data.error||'保存失败',false);
+  }
 });
 
 // —— 系统配置 ——

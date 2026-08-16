@@ -117,13 +117,17 @@ func configHandler(c *gin.Context, cfg *config.Config) {
 	c.JSON(http.StatusOK, cfg.ToAPI())
 }
 
-// updateConfigHandler 接收配置变更并持久化（端口等需重启生效，但已写入 config.json）
+// updateConfigHandler 接收配置变更并持久化。FTP 相关字段（端口/PASV/FTPS）
+// 会通过已注册回调热重载 FTP 服务，立即生效；Web 端口/数据目录等读取实时生效。
+// 仅 Web 监听端口需在页面提示用户重启进程方可切换。
 func updateConfigHandler(c *gin.Context, cfg *config.Config) {
 	var body map[string]interface{}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "请求格式错误"})
 		return
 	}
+	// 记录是否涉及 Web 端口（该字段需重启进程才切换监听）
+	_, webPortChanged := body["web_port"]
 	if err := cfg.UpdateFromMap(body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -132,7 +136,11 @@ func updateConfigHandler(c *gin.Context, cfg *config.Config) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存配置失败: " + err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "配置已保存，部分端口类修改需重启生效"})
+	msg := "配置已保存并即时生效（FTP 服务已热重载，无需重启）"
+	if webPortChanged {
+		msg = "配置已保存；Web 管理端口需重启服务进程后切换，其余项已即时生效"
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true, "message": msg, "web_port_changed": webPortChanged})
 }
 
 // registerHandler 处理 Web 端注册（创建一个可写普通用户）

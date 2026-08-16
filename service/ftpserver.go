@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/goftp/server"
@@ -233,23 +234,47 @@ func (f *fileInfo) Group() string { return "group" }
 // 确保 fileInfo 实现 server.FileInfo（编译期检查）
 var _ server.FileInfo = (*fileInfo)(nil)
 
-// StartFTP 启动 FTP 服务器
+// ftpController 保存 FTP 服务器的可热重载句柄
+type ftpController struct {
+	cfg   *config.Config
+	store *repository.UserStore
+	mu    sync.Mutex
+	srv   *server.Server
+}
+
+// StartFTP 启动 FTP 服务器，并注册热重载回调，使配置变更（端口/PASV/FTPS 等）
+// 能够在不重启整个进程的前提下即时生效。返回当前 server 与错误。
 func StartFTP(cfg *config.Config, store *repository.UserStore) (*server.Server, error) {
+	ctl := &ftpController{cfg: cfg, store: store}
+	if err := ctl.start(); err != nil {
+		return nil, err
+	}
+	// 注册热重载：配置变更时重建 FTP 服务
+	cfg.RegisterFTPReloader(func(c *config.Config) error {
+		log.Println("检测到 FTP 配置变更，执行热重载...")
+		return ctl.reload()
+	})
+	return ctl.srv, nil
+}
+
+// start 依据当前配置创建并启动一个 FTP server（调用方需保证并发安全）
+func (ctl *ftpController) start() error {
 	opts := &server.ServerOpts{
-		Factory: &ftpDriverFactory{store: store, cfg: cfg},
-		Auth:    &ftpAuth{store: store},
+		Factory: &ftpDriverFactory{store: ctl.store, cfg: ctl.cfg},
+		Auth:    &ftpAuth{store: ctl.store},
 		Name:    "PhiloFTP",
-		Port:    cfg.FTPPort,
-		PassivePorts: passivePortRange(cfg.PASVMinPort, cfg.PASVMaxPort),
+		Port:    ctl.cfg.FTPPort,
+		PassivePorts: passivePortRange(ctl.cfg.PASVMinPort, ctl.cfg.PASVMaxPort),
 		WelcomeMessage: "Welcome to PhiloFTP",
 	}
-	if cfg.EnableFTPS && cfg.TLSCert != "" && cfg.TLSKey != "" {
+	if ctl.cfg.EnableFTPS && ctl.cfg.TLSCert != "" && ctl.cfg.TLSKey != "" {
 		opts.TLS = true
-		opts.CertFile = cfg.TLSCert
-		opts.KeyFile = cfg.TLSKey
+		opts.CertFile = ctl.cfg.TLSCert
+		opts.KeyFile = ctl.cfg.TLSKey
 		opts.ExplicitFTPS = true
 	}
 	s := server.NewServer(opts)
+	ctl.srv = s
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -262,7 +287,19 @@ func StartFTP(cfg *config.Config, store *repository.UserStore) (*server.Server, 
 	}()
 	// 给一点启动时间
 	time.Sleep(200 * time.Millisecond)
-	return s, nil
+	return nil
+}
+
+// reload 关闭旧 FTP 服务并以最新配置重建（热重载，无需重启进程）
+func (ctl *ftpController) reload() error {
+	ctl.mu.Lock()
+	defer ctl.mu.Unlock()
+	if ctl.srv != nil {
+		_ = ctl.srv.Shutdown()
+		// 等待端口释放，避免新实例绑定冲突
+		time.Sleep(300 * time.Millisecond)
+	}
+	return ctl.start()
 }
 
 func passivePortRange(min, max int) string {
