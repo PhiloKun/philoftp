@@ -215,6 +215,12 @@ func downloadHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerF
 			disp = fmt.Sprintf("attachment; filename=\"%s\"; filename*=UTF-8''%s",
 				strings.ReplaceAll(info.Name(), "\"", ""), url.QueryEscape(info.Name()))
 		}
+
+		// inline=1 时改为内联预览（浏览器直接展示而非下载）。
+		// 安全限制：text/html 类型一律强制下载，避免预览时执行脚本（XSS）。
+		if c.Query("inline") == "1" && !strings.HasPrefix(ctype, "text/html") {
+			disp = strings.Replace(disp, "attachment", "inline", 1)
+		}
 		c.Header("Content-Type", ctype)
 		c.Header("Content-Disposition", disp)
 		c.Header("Content-Length", strconv.FormatInt(info.Size(), 10))

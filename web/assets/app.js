@@ -92,25 +92,80 @@
     if(path != null) state.curPath = path;
     var p = state.curPath;
     el('pathBar').textContent = p;
+    el('upBtn').style.visibility = (p === '/' || p === '') ? 'hidden' : 'visible';
+    renderBreadcrumb(p);
     api('/api/files?path=' + encodeURIComponent(p)).then(function(x){
       var tb = el('fileList'); el('fileEmpty').style.display = 'none';
       if(!x.ok){ toast(x.d.error||'加载失败', false); return; }
       var items = x.d.items || [];
       if(!items.length){ el('fileEmpty').style.display = 'block'; tb.innerHTML = ''; return; }
       tb.innerHTML = items.map(function(f){
-        var ops = f.is_dir
-          ? '<button class="btn btn-ghost btn-sm" data-open="'+esc(f.name)+'">打开</button>'
-          : '<button class="btn btn-ghost btn-sm" data-dl="'+esc(f.name)+'">下载</button>';
-        if(state.role === 'admin' || true){
-          ops += ' <button class="btn btn-danger btn-sm" data-del="'+esc(f.name)+'">删除</button>';
+        var ops;
+        if(f.is_dir){
+          ops = '<button class="btn btn-ghost btn-sm" data-open="'+esc(f.name)+'">打开</button>';
+        } else {
+          ops = '<button class="btn btn-ghost btn-sm" data-prev="'+esc(f.name)+'">预览</button>' +
+                '<button class="btn btn-ghost btn-sm" data-dl="'+esc(f.name)+'">下载</button>';
         }
+        ops += ' <button class="btn btn-danger btn-sm" data-del="'+esc(f.name)+'">删除</button>';
         return '<tr><td>'+(f.is_dir?'📁':'📄')+' '+esc(f.name)+'</td><td class="mono">'+fmtSize(f.size)+'</td><td class="mono">'+esc(f.mod_time||'')+'</td><td>'+ops+'</td></tr>';
       }).join('');
       qa('[data-open]', tb).forEach(function(b){ b.onclick = function(){ var np = p === '/' ? '/' + b.getAttribute('data-open') : p + '/' + b.getAttribute('data-open'); loadFiles(np); }; });
+      qa('[data-prev]', tb).forEach(function(b){ b.onclick = function(){ preview(p, b.getAttribute('data-prev')); }; });
       qa('[data-dl]', tb).forEach(function(b){ b.onclick = function(){ download(p, b.getAttribute('data-dl')); }; });
       qa('[data-del]', tb).forEach(function(b){ b.onclick = function(){ delItem(p, b.getAttribute('data-del')); }; });
     });
   }
+  // 面包屑导航：将路径拆为逐级可点击段
+  function renderBreadcrumb(p){
+    var parts = (p || '/').split('/').filter(Boolean);
+    var segs = ['<span class="crumb-seg" data-go="/">根目录</span>'];
+    var acc = '';
+    parts.forEach(function(s){
+      acc += '/' + s;
+      segs.push('<span class="crumb-sep">/</span><span class="crumb-seg" data-go="'+esc(acc)+'">'+esc(s)+'</span>');
+    });
+    var bc = el('breadcrumb');
+    bc.innerHTML = segs.join('');
+    qa('.crumb-seg', bc).forEach(function(s){ s.onclick = function(){ loadFiles(s.getAttribute('data-go')); }; });
+  }
+  // 返回上一级
+  function goUp(){
+    var p = state.curPath;
+    if(!p || p === '/' || p === '') return;
+    var idx = p.lastIndexOf('/');
+    loadFiles(idx <= 0 ? '/' : p.substring(0, idx));
+  }
+  // 文件预览：按扩展名选择展示方式
+  function preview(dir, name){
+    var ext = (name.split('.').pop() || '').toLowerCase();
+    var url = '/api/download?inline=1&path=' + encodeURIComponent((dir==='/'?'':dir) + '/' + name);
+    var body = el('previewBody');
+    el('previewName').textContent = name;
+    var img = ['png','jpg','jpeg','gif','webp','bmp','svg','ico'];
+    var txt = ['txt','md','log','csv','json','xml','yml','yaml','ini','conf','go','js','ts','css','html','sh','py','c','cpp','h','java','rs'];
+    var vid = ['mp4','webm','ogg','mov'];
+    var aud = ['mp3','wav','ogg','m4a','flac'];
+    var html = '';
+    if(img.indexOf(ext) >= 0){
+      html = '<img class="preview-img" src="'+url+'" alt="'+esc(name)+'">';
+    } else if(vid.indexOf(ext) >= 0){
+      html = '<video class="preview-media" src="'+url+'" controls autoplay></video>';
+    } else if(aud.indexOf(ext) >= 0){
+      html = '<audio src="'+url+'" controls autoplay></audio>';
+    } else if(txt.indexOf(ext) >= 0){
+      html = '<iframe class="preview-frame" src="'+url+'"></iframe>';
+    } else if(ext === 'pdf'){
+      html = '<iframe class="preview-frame" src="'+url+'"></iframe>';
+    } else {
+      html = '<div class="preview-unsupported">该文件类型暂不支持在线预览。<br><button class="btn btn-primary btn-sm" id="prevDl">下载查看</button></div>';
+    }
+    body.innerHTML = html;
+    var dl = el('prevDl');
+    if(dl) dl.onclick = function(){ download(dir, name); };
+    el('preview').classList.add('show');
+  }
+  function closePreview(){ el('preview').classList.remove('show'); el('previewBody').innerHTML = ''; }
   function download(dir, name){
     var url = '/api/download?path=' + encodeURIComponent((dir==='/'?'':dir) + '/' + name);
     var a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
@@ -125,7 +180,7 @@
   function mkdir(){
     var name = prompt('新建目录名称：'); if(!name) return;
     api('/api/mkdir', { method:'POST', body: JSON.stringify({ path: state.curPath, name: name }) }).then(function(x){
-      if(x.ok){ toast('已创建', true); loadFiles(); } else toast(x.d.error||'创建失败', false);
+      if(x.ok){ toast('已创建目录「'+name+'」，可在文件列表中打开或返回上一级', true); loadFiles(); } else toast(x.d.error||'创建失败', false);
     });
   }
   function upload(files){
@@ -282,6 +337,9 @@
       el('modal').onclick = function(e){ if(e.target === el('modal')) closeModal(); };
       el('newDirBtn').onclick = mkdir;
       el('refreshBtn').onclick = function(){ loadFiles(); };
+      el('upBtn').onclick = goUp;
+      el('previewClose').onclick = closePreview;
+      el('preview').onclick = function(e){ if(e.target === el('preview')) closePreview(); };
       el('fileInput').onchange = function(e){ upload(e.target.files); e.target.value=''; };
       if(state.role === 'admin'){
         el('addUserBtn').onclick = function(){ openUserModal(''); };

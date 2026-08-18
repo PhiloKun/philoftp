@@ -44,11 +44,13 @@
       <section class="view" id="v-files">
         <div class="sec-head"><h2>文件管理</h2></div>
         <div class="toolbar">
+          <button class="btn btn-ghost btn-sm" id="upBtn" title="返回上一级目录">↑ 上一级</button>
           <span class="pathbar" id="pathBar">/</span>
           <button class="btn btn-ghost btn-sm" id="newDirBtn">＋ 新建目录</button>
           <button class="btn btn-ghost btn-sm" id="refreshBtn">⟳ 刷新</button>
           <label class="btn btn-primary btn-sm" style="margin:0">⬆ 上传<input id="fileInput" type="file" multiple style="display:none"></label>
         </div>
+        <div class="breadcrumb" id="breadcrumb"></div>
         <div class="table-wrap"><table><thead><tr><th>名称</th><th>大小</th><th>修改时间</th><th style="width:160px">操作</th></tr></thead><tbody id="fileList"></tbody></table></div>
         <div class="empty" id="fileEmpty" style="display:none">此目录为空</div>
       </section>
@@ -98,6 +100,10 @@
 </div>
 
 <div class="overlay" id="modal"><div class="modal glass" id="modalBody"></div></div>
+<div class="overlay" id="preview"><div class="glass preview-box">
+  <div class="preview-head"><span id="previewName">预览</span><button class="btn btn-ghost btn-sm" id="previewClose">✕ 关闭</button></div>
+  <div class="preview-body" id="previewBody"></div>
+</div></div>
 <div class="mask" id="mask"><div class="card pad" style="width:360px;text-align:center"><div class="lbl" style="justify-content:center">处理中</div><div class="pbar"><i id="pbar"></i></div><div id="pmeta" class="about-line">0%</div></div></div>
 <div class="toast" id="toast"></div>
 
