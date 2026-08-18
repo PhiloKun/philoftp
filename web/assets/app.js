@@ -479,16 +479,16 @@
     el('ovAddContent').value = '';
     el('ovAddHint').style.opacity = '0';
     el('ovAddSlot').value = 'ovCol2';
-    el('ovAddCard').classList.add('show');
+    el('ovAddCardModal').classList.add('show');
     var done = false;
-    function close(){ if(done) return; done = true; el('ovAddCard').classList.remove('show'); cleanup(); }
+    function close(){ if(done) return; done = true; el('ovAddCardModal').classList.remove('show'); cleanup(); }
     function submit(){
       if(done) return;
       var title = el('ovAddTitleInput').value.trim();
       var content = el('ovAddContent').value;
       if(!title){ el('ovAddHint').textContent = '请填写卡片标题'; el('ovAddHint').style.opacity = '1'; el('ovAddTitleInput').focus(); return; }
       done = true;
-      el('ovAddCard').classList.remove('show');
+      el('ovAddCardModal').classList.remove('show');
       cleanup();
       var id = 'custom-' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
       var slot = el('ovAddSlot').value;
@@ -507,14 +507,14 @@
     function cleanup(){
       el('ovAddCancel').removeEventListener('click', close);
       el('ovAddOk').removeEventListener('click', submit);
-      el('ovAddCard').removeEventListener('click', overlayClick);
+      el('ovAddCardModal').removeEventListener('click', overlayClick);
       el('ovAddTitleInput').removeEventListener('keydown', onKey);
     }
-    function overlayClick(e){ if(e.target === el('ovAddCard')) close(); }
+    function overlayClick(e){ if(e.target === el('ovAddCardModal')) close(); }
     function onKey(e){ if(e.key === 'Escape') close(); }
     el('ovAddCancel').addEventListener('click', close);
     el('ovAddOk').addEventListener('click', submit);
-    el('ovAddCard').addEventListener('click', overlayClick);
+    el('ovAddCardModal').addEventListener('click', overlayClick);
     el('ovAddTitleInput').addEventListener('keydown', onKey);
     setTimeout(function(){ el('ovAddTitleInput').focus(); }, 30);
   }
@@ -708,7 +708,10 @@
     }).join('');
   }
   function renderLoad(l){
-    el('ovLoad').innerHTML = [
+    // 运行时负载信息已并入 KPI 卡（kpi-go），无独立容器时静默跳过
+    var target = el('ovLoad');
+    if(!target) return;
+    target.innerHTML = [
       ['协程数', l.goroutines],
       ['Go 版本', l.go_version],
       ['健康度', l.goroutines < 1000 ? '良好' : (l.goroutines < 5000 ? '正常' : '关注')]
