@@ -560,6 +560,10 @@ func filesHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFunc
 		}
 		items := make([]map[string]interface{}, 0)
 		for _, e := range entries {
+			// 过滤回收站等内部系统目录，不在文件列表中显示
+			if e.Name() == ".trash" {
+				continue
+			}
 			fi, err := e.Info()
 			if err != nil {
 				continue
