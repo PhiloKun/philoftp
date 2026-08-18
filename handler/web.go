@@ -41,6 +41,7 @@ func StartWeb(cfg *config.Config, store *repository.DBStore, webFS fs.FS) (strin
 	authed.Use(auth.RequireAuth())
 	authed.GET("/api/status", statusHandler(cfg, store))
 	authed.GET("/api/files", filesHandler(cfg, store))
+	authed.DELETE("/api/files", deleteFileHandler(cfg, store))
 	authed.POST("/api/mkdir", mkdirHandler(cfg, store))
 	authed.POST("/api/upload", uploadHandler(cfg, store))
 	authed.GET("/api/download", downloadHandler(cfg, store))
@@ -300,6 +301,41 @@ func filesHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFunc
 			return items[i]["name"].(string) < items[j]["name"].(string)
 		})
 		c.JSON(http.StatusOK, gin.H{"path": path, "items": items})
+	}
+}
+
+// deleteFileHandler 删除文件或目录（支持递归删除目录）
+func deleteFileHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user, ok := currentUserOf(c)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "未登录"})
+			return
+		}
+		if !user.CanWrite() {
+			c.JSON(http.StatusForbidden, gin.H{"error": "账户禁用，无法删除"})
+			return
+		}
+		path := c.Query("path")
+		if path == "" || path == "/" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "非法路径"})
+			return
+		}
+		full, err := safeJoin(cfg, user, path)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		// 防止误删 home 根目录本身
+		if filepath.Clean(full) == filepath.Clean(model.ResolveHome(config.DataDirOf(cfg), user.Home)) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "不能删除主目录根路径"})
+			return
+		}
+		if err := os.RemoveAll(full); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "删除失败: " + err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"ok": true})
 	}
 }
 
