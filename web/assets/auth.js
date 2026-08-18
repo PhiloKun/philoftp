@@ -57,10 +57,11 @@
     return fetch(path, Object.assign({ headers:{'Content-Type':'application/json'}, credentials:'include' }, opts));
   }
 
-  fetch('/api/register/enabled').then(function(r){ return r.json(); }).then(function(d){
-    if(d && d.enabled){
-      var link = el('regLink');
-      if(link) link.innerHTML = '没有账户？<a href="/register">立即注册</a>';
+  // 登录页默认显示注册入口；仅当后端明确关闭自助注册时隐藏该链接
+  var regLink = el('regLink');
+  fetch('/api/config/public').then(function(r){ return r.json(); }).then(function(d){
+    if(d && d.allow_register === false && regLink){
+      regLink.style.display = 'none';
     }
   }).catch(function(){});
 
