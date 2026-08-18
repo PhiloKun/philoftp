@@ -50,6 +50,12 @@ body{background:var(--bg);color:var(--txt);font-family:var(--font-body);min-heig
   padding:5px 8px;border-radius:6px;border:1px solid rgba(34,211,238,.12);overflow-wrap:anywhere;word-break:break-all;}
 .access-tip{font-size:11px;color:var(--muted);line-height:1.7;margin-top:16px;padding-top:14px;border-top:1px dashed var(--line);}
 .access-tip b{color:var(--cyan);}
+.access-links{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;}
+.access-link{flex:1;min-width:0;padding:10px 12px;text-align:center;border-radius:8px;text-decoration:none;
+  font-size:12px;color:var(--cyan);background:rgba(34,211,238,.07);border:1px solid rgba(34,211,238,.22);transition:.18s;
+  overflow-wrap:anywhere;word-break:break-all;}
+.access-link:hover{background:rgba(34,211,238,.14);color:var(--cyan);}
+.access-link:active{transform:scale(.98);}
 .brand .logo{width:54px;height:54px;border-radius:14px;background:linear-gradient(135deg,var(--cyan),var(--cyan2));
   color:#04121a;font-size:26px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;}
 .brand h1{font-size:20px;font-weight:600;letter-spacing:.01em;}
@@ -421,8 +427,10 @@ td .mono,td.mono{font-size:13px;color:var(--haze);}
 .ov-access-row code{font-family:var(--font-mono);font-size:12px;color:var(--cyan2);background:rgba(34,211,238,.06);
   padding:4px 8px;border-radius:6px;border:1px solid rgba(34,211,238,.12);overflow-wrap:anywhere;word-break:break-all;}
 .ov-access-tip{font-size:11px;color:var(--muted);line-height:1.6;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);}
-.ov-access-link{display:block;margin-top:12px;padding:10px 12px;text-align:center;border-radius:8px;text-decoration:none;
-  font-size:13px;color:var(--cyan);background:rgba(34,211,238,.07);border:1px solid rgba(34,211,238,.22);transition:.18s;}
+.ov-access-links{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;}
+.ov-access-link{flex:1;min-width:0;padding:10px 12px;text-align:center;border-radius:8px;text-decoration:none;
+  font-size:12px;color:var(--cyan);background:rgba(34,211,238,.07);border:1px solid rgba(34,211,238,.22);transition:.18s;
+  overflow-wrap:anywhere;word-break:break-all;}
 .ov-access-link:hover{background:rgba(34,211,238,.14);color:var(--cyan);}
 .ov-access-link:active{transform:scale(.98);}
 

@@ -268,7 +268,12 @@
       var linkEl = el('ovAccessLink');
       if(linkEl && d.ip && d.web_port){
         linkEl.href = 'http://' + d.ip + ':' + d.web_port;
-        linkEl.textContent = '🔗 内网访问 ' + d.ip + ':' + d.web_port;
+        linkEl.textContent = '🔗 IP 访问 ' + d.ip + ':' + d.web_port;
+      }
+      var mdnsEl = el('ovAccessMdns');
+      if(mdnsEl && d.hostname && d.web_port){
+        mdnsEl.href = 'http://' + d.hostname + ':' + d.web_port;
+        mdnsEl.textContent = '🌐 mDNS 访问 ' + d.hostname + ':' + d.web_port;
       }
     });
     var img = new Image();

@@ -99,6 +99,15 @@
       if(el('accessIP')) el('accessIP').textContent = d.ip || '—';
       if(el('accessHost')) el('accessHost').textContent = d.hostname || 'philoftp.local';
       if(el('accessPort')) el('accessPort').textContent = d.web_port;
+      // 内网访问链接：IP + mDNS 主机名
+      if(d.ip && d.web_port && el('accessLinkIP')){
+        el('accessLinkIP').href = 'http://' + d.ip + ':' + d.web_port;
+        el('accessLinkIP').textContent = '🔗 IP 访问 ' + d.ip + ':' + d.web_port;
+      }
+      if(d.hostname && d.web_port && el('accessLinkMdns')){
+        el('accessLinkMdns').href = 'http://' + d.hostname + ':' + d.web_port;
+        el('accessLinkMdns').textContent = '🌐 mDNS 访问 ' + d.hostname + ':' + d.web_port;
+      }
       // 二维码图片（后端生成）
       if(el('accessQR')){
         var img = new Image();
