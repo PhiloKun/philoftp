@@ -2,6 +2,10 @@
 
 BINARY      := philoftp
 DIST        := dist
+GIT_COMMIT  := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
+VERSION     := $(shell git describe --tags --always 2>/dev/null || echo dev)
+# 注入版本/提交信息到 handler 包，供"关于"页展示
+VERSION_LDFLAGS := -X github.com/philoftp/handler.version=$(VERSION) -X github.com/philoftp/handler.gitCommit=$(GIT_COMMIT)
 
 .PHONY: build run clean dist-macos dist-windows dist-linux dist installer-windows test
 
@@ -21,7 +25,7 @@ dist-macos:
 
 ## dist-windows: 构建 Windows 二进制（系统托盘 GUI，需 mingw-w64：brew install mingw-w64）
 dist-windows:
-	CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc go build -ldflags "-H=windowsgui" -o $(DIST)/windows/$(BINARY)-windows-amd64.exe .
+	CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc go build -ldflags "-H=windowsgui $(VERSION_LDFLAGS)" -o $(DIST)/windows/$(BINARY)-windows-amd64.exe .
 	cd $(DIST)/windows && zip $(BINARY)-windows.zip $(BINARY)-windows-amd64.exe
 
 ## installer-windows: 生成 Windows 安装程序（需 NSIS + mingw-w64 + python3+Pillow）

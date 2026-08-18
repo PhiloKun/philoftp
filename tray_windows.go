@@ -42,7 +42,8 @@ var (
 )
 
 func onTrayReady(app *App) {
-	systray.SetIcon(iconBytes())
+	// Windows 托盘优先使用 .ico 图标（兼容性最好）
+	systray.SetIcon(iconBytesICO())
 	systray.SetTitle("PhiloFTP")
 	systray.SetTooltip("PhiloFTP 内网 FTP 服务器")
 
@@ -57,11 +58,13 @@ func onTrayReady(app *App) {
 	showLog := systray.AddMenuItem("打开日志目录", "在文件管理器中打开日志目录")
 	quit := systray.AddMenuItem("退出 PhiloFTP", "退出并停止服务")
 
-	// 初始：尝试自动启动服务
-	if err := app.Start(); err != nil {
-		slog.Error("服务启动失败", "error", err)
-	}
-	refreshTrayStatus(app)
+	// 异步启动服务，避免阻塞托盘初始化（托盘图标应立即显示）
+	go func() {
+		if err := app.Start(); err != nil {
+			slog.Error("服务启动失败", "error", err)
+		}
+		refreshTrayStatus(app)
+	}()
 
 	// 打开 Web
 	go func() {

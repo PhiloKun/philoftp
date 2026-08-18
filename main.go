@@ -6,14 +6,15 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
 func main() {
-	configPath := flag.String("config", defaultConfigPath(), "配置文件路径")
-	dbPath := flag.String("db", defaultDBPath(), "SQLite 用户数据库路径")
-	ftpPort := flag.Int("ftp-port", 0, "FTP 端口(覆盖配置)")
-	webPort := flag.Int("web-port", 0, "Web 管理端口(覆盖配置)")
-	dataDir := flag.String("data", "", "数据根目录(覆盖配置)")
+	configPath := flag.String("config", envOr("PHILOFTP_CONFIG", defaultConfigPath()), "配置文件路径")
+	dbPath := flag.String("db", envOr("PHILOFTP_DB", defaultDBPath()), "SQLite 用户数据库路径")
+	ftpPort := flag.Int("ftp-port", envInt("PHILOFTP_FTP_PORT", 0), "FTP 端口(覆盖配置)")
+	webPort := flag.Int("web-port", envInt("PHILOFTP_WEB_PORT", 0), "Web 管理端口(覆盖配置)")
+	dataDir := flag.String("data", envOr("PHILOFTP_DATA_DIR", ""), "数据根目录(覆盖配置)")
 	headless := flag.Bool("headless", false, "无托盘模式（仅控制台运行）")
 	flag.Parse()
 
@@ -32,6 +33,24 @@ func main() {
 
 	// 平台分发：由各平台的 runTray 实现决定（Windows 系统托盘 / 其他控制台）
 	runTray(app, *headless)
+}
+
+// envOr 返回环境变量值，未设置或为空时返回 fallback。
+func envOr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+// envInt 返回环境变量对应的整数，未设置或解析失败时返回 fallback。
+func envInt(key string, fallback int) int {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
+	}
+	return fallback
 }
 
 // defaultConfigPath 返回默认配置文件路径。

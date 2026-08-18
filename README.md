@@ -56,7 +56,7 @@ make build        # 编译到 dist/macos/philoftp
 
 > ⚠️ 首次部署请务必修改默认密码，或直接删除默认用户在 Web 端新建。
 
-## 命令行参数
+## 命令行参数 / 环境变量
 
 ```bash
 ./philoftp \
@@ -65,7 +65,20 @@ make build        # 编译到 dist/macos/philoftp
   -ftp-port 2121 \        # FTP 控制端口（覆盖配置）
   -web-port 8080 \        # Web 管理端口（覆盖配置）
   -data   ./data          # 数据根目录（覆盖配置）
+  -headless               # Windows 下强制控制台模式（无托盘）
 ```
+
+端口/路径同样可通过**环境变量**配置（命令行参数优先级更高）：
+
+| 环境变量 | 作用 |
+|---|---|
+| `PHILOFTP_WEB_PORT` | Web 管理端口（如 `9090`） |
+| `PHILOFTP_FTP_PORT` | FTP 控制端口（如 `2121`） |
+| `PHILOFTP_DATA_DIR` | 数据根目录 |
+| `PHILOFTP_CONFIG` | 配置文件路径 |
+| `PHILOFTP_DB` | 用户数据库路径 |
+
+> 端口优先级：命令行 `-web-port`/`-ftp-port` > 环境变量 `PHILOFTP_*` > 配置文件 `config.json`。Web 管理端口修改后**需重启进程**生效（FTP 端口经热重载立即生效）。
 
 ## Web 管理端功能
 

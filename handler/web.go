@@ -23,6 +23,12 @@ import (
 	"github.com/philoftp/repository"
 )
 
+// version / gitCommit 通过构建时 -ldflags 注入，用于"关于"页展示。
+var (
+	version   = "dev"
+	gitCommit = ""
+)
+
 // WebServer 封装 Web 管理端（Gin），支持启动与优雅关闭。
 type WebServer struct {
 	auth *AuthManager
@@ -55,6 +61,7 @@ func StartWeb(cfg *config.Config, store *repository.DBStore, webFS fs.FS) (*WebS
 	authed := r.Group("")
 	authed.Use(auth.RequireAuth())
 	authed.GET("/api/status", statusHandler(cfg, store))
+	authed.GET("/api/about", aboutHandler())
 	authed.GET("/api/overview", overviewHandler(cfg, store, auth))
 	authed.GET("/api/files", filesHandler(cfg, store))
 	authed.DELETE("/api/files", deleteFileHandler(cfg, store))
@@ -108,6 +115,17 @@ func statusHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFun
 			"ftps":       cfg.EnableFTPS,
 			"uptime":     time.Since(config.StartTime).Round(time.Second).String(),
 			"user_count": len(store.List()),
+		})
+	}
+}
+
+// aboutHandler 返回"关于"页面所需信息（版本/Go 版本/Git 提交）。
+func aboutHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"version":    version,
+			"go_version": runtime.Version(),
+			"git_commit": gitCommit,
 		})
 	}
 }

@@ -86,19 +86,27 @@ func (c *Config) Save() error {
 	return c.saveLocked()
 }
 
-// saveLocked 在已持有写锁的前提下持久化配置
+// saveLocked 在已持有写锁的前提下持久化配置。
+// 若配置目录不存在则先创建，避免因目录缺失导致写入失败。
 func (c *Config) saveLocked() error {
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
 	}
+	dir := filepath.Dir(c.configPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
 	return os.WriteFile(c.configPath, data, 0644)
 }
 
-// SaveConfig 将配置持久化为 JSON
+// SaveConfig 将配置持久化为 JSON（自动创建父目录）
 func SaveConfig(path string, c *Config) error {
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
 	return os.WriteFile(path, data, 0644)
