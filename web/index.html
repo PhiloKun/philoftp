@@ -35,6 +35,18 @@
     <button class="btn btn-primary" id="b" type="submit">登 录</button>
     <div class="auth-link" id="regLink">没有账户？<a href="/register">立即注册</a></div>
   </form>
+  <div class="access-card glass">
+    <div class="access-head">📡 局域网访问</div>
+    <div class="access-body">
+      <div class="access-qr" id="accessQR"><span class="access-qr-placeholder">加载二维码…</span></div>
+      <div class="access-info">
+        <div class="access-row"><span class="access-label">IP 地址</span><code class="mono" id="accessIP">—</code></div>
+        <div class="access-row"><span class="access-label">主机名</span><code class="mono" id="accessHost">—</code></div>
+        <div class="access-row"><span class="access-label">Web 端口</span><code class="mono" id="accessPort">—</code></div>
+      </div>
+    </div>
+    <div class="access-tip">同一局域网内的设备，扫码或输入上述地址即可访问本管理端；mDNS 主机名 <b>philoftp.local</b> 供支持该协议的设备使用。</div>
+  </div>
 </div>
 <script src="/assets/auth.js"></script>
 <script>initLogin();</script>

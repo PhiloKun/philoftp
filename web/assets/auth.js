@@ -66,6 +66,7 @@
   }).catch(function(){});
 
   window.initLogin = function(){
+    loadAccessInfo();
     bindToggle();
     bindHint('u', 'uHint', '请输入用户名，例如 admin', function(v){
       if(!v.trim()) return {cls:'focus', text:'请输入用户名，例如 admin'};
@@ -89,6 +90,24 @@
         })
         .catch(function(){ setBtn(false, '登 录'); alertBox('网络错误，请重试'); });
     };
+  };
+
+  // 加载并展示"局域网访问"信息（IP / mDNS 主机名 / 端口 / 二维码）
+  function loadAccessInfo(){
+    fetch('/api/access').then(function(r){ return r.json(); }).then(function(d){
+      if(!d || !d.web_port) return;
+      if(el('accessIP')) el('accessIP').textContent = d.ip || '—';
+      if(el('accessHost')) el('accessHost').textContent = d.hostname || 'philoftp.local';
+      if(el('accessPort')) el('accessPort').textContent = d.web_port;
+      // 二维码图片（后端生成）
+      if(el('accessQR')){
+        var img = new Image();
+        img.src = '/api/access/qr';
+        img.alt = '访问二维码';
+        img.onload = function(){ el('accessQR').innerHTML = ''; el('accessQR').appendChild(img); };
+        img.onerror = function(){ el('accessQR').innerHTML = '<span style="color:var(--muted)">二维码加载失败</span>'; };
+      }
+    }).catch(function(){});
   };
 
   window.initRegister = function(){

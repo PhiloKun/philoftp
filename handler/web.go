@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"mime"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/skip2/go-qrcode"
 
 	"github.com/philoftp/config"
 	"github.com/philoftp/model"
@@ -56,6 +58,9 @@ func StartWeb(cfg *config.Config, store *repository.DBStore, webFS fs.FS) (*WebS
 	r.GET("/api/config/public", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"allow_register": cfg.AllowRegisterEnabled()})
 	})
+	// 访问信息（局域网 IP / mDNS 主机名）无需登录即可获取，供登录页展示"其他电脑如何访问"
+	r.GET("/api/access", accessHandler(cfg))
+	r.GET("/api/access/qr", accessQRHandler(cfg))
 
 	// 受保护接口（所有已登录用户均可访问文件操作）
 	authed := r.Group("")
@@ -127,6 +132,50 @@ func aboutHandler() gin.HandlerFunc {
 			"go_version": runtime.Version(),
 			"git_commit": gitCommit,
 		})
+	}
+}
+
+// accessHandler 返回本机的局域网访问信息（IP / mDNS 主机名 / 端口），
+// 供前端展示"其他电脑如何访问本服务"。
+func accessHandler(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"ip":       localIPv4(),
+			"hostname": "philoftp.local",
+			"web_port": cfg.WebPort,
+			"ftp_port": cfg.FTPPort,
+		})
+	}
+}
+
+// localIPv4 返回本机第一个非回环 IPv4 地址；无则回退 127.0.0.1。
+func localIPv4() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "127.0.0.1"
+	}
+	for _, a := range addrs {
+		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ip4 := ipnet.IP.To4(); ip4 != nil {
+				return ip4.String()
+			}
+		}
+	}
+	return "127.0.0.1"
+}
+
+// accessQRHandler 返回"访问地址"的二维码 PNG，供其他设备扫码直达管理端。
+func accessQRHandler(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		addr := fmt.Sprintf("http://%s:%d", localIPv4(), cfg.WebPort)
+		png, err := qrcode.Encode(addr, qrcode.Medium, 256)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "生成二维码失败"})
+			return
+		}
+		c.Header("Content-Type", "image/png")
+		c.Header("Cache-Control", "no-cache")
+		c.Data(http.StatusOK, "image/png", png)
 	}
 }
 

@@ -26,6 +26,7 @@ type App struct {
 	mu         sync.Mutex
 	ftpSrv     *server.Server
 	webSrv     *handler.WebServer
+	mdnsSvc    *service.MDNS
 	running    bool
 	lastErr    error
 	startedAt  time.Time
@@ -106,6 +107,9 @@ func (a *App) Start() error {
 	}
 	a.webSrv = webSrv
 
+	// 注册 mDNS（philoftp.local），便于内网其他设备用主机名访问
+	a.mdnsSvc = service.StartMDNS(a.cfg.WebPort)
+
 	a.running = true
 	a.startedAt = time.Now()
 	a.lastErr = nil
@@ -128,6 +132,10 @@ func (a *App) Stop() {
 	if a.ftpSrv != nil {
 		_ = a.ftpSrv.Shutdown()
 		a.ftpSrv = nil
+	}
+	if a.mdnsSvc != nil {
+		a.mdnsSvc.Stop()
+		a.mdnsSvc = nil
 	}
 	a.running = false
 	slog.Info("服务已停止")

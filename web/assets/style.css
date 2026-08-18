@@ -30,10 +30,26 @@ body{background:var(--bg);color:var(--txt);font-family:var(--font-body);min-heig
 .glass{background:rgba(13,19,32,.72);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(30,42,64,.9);}
 
 /* ===== 登录 / 注册页 ===== */
-.auth-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;min-height:100dvh;padding:20px;position:relative;overflow:hidden;}
+.auth-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;min-height:100dvh;padding:20px;position:relative;overflow:hidden;flex-wrap:wrap;gap:22px;}
 .auth-card{width:440px;max-width:100%;border-radius:20px;padding:36px;position:relative;z-index:1;
   box-shadow:0 30px 80px -20px rgba(0,0,0,.8),0 0 0 1px rgba(34,211,238,.1);}
 .brand{text-align:center;margin-bottom:26px;}
+/* 局域网访问卡片 */
+.access-card{width:400px;max-width:100%;border-radius:20px;padding:26px;position:relative;z-index:1;
+  box-shadow:0 30px 80px -20px rgba(0,0,0,.8),0 0 0 1px rgba(34,211,238,.12);}
+.access-head{font-size:14px;font-weight:600;color:var(--cyan);margin-bottom:18px;letter-spacing:.02em;}
+.access-body{display:flex;gap:18px;align-items:center;}
+.access-qr{width:132px;height:132px;flex-shrink:0;border-radius:12px;overflow:hidden;
+  background:rgba(7,10,18,.5);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;}
+.access-qr img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;}
+.access-qr-placeholder{font-size:11px;color:var(--muted);text-align:center;padding:6px;}
+.access-info{flex:1;display:flex;flex-direction:column;gap:10px;min-width:0;}
+.access-row{display:flex;flex-direction:column;gap:3px;}
+.access-label{font-size:11px;color:var(--muted);}
+.access-info code{font-family:var(--font-mono);font-size:13px;color:var(--cyan2);background:rgba(34,211,238,.06);
+  padding:5px 8px;border-radius:6px;border:1px solid rgba(34,211,238,.12);overflow-wrap:anywhere;word-break:break-all;}
+.access-tip{font-size:11px;color:var(--muted);line-height:1.7;margin-top:16px;padding-top:14px;border-top:1px dashed var(--line);}
+.access-tip b{color:var(--cyan);}
 .brand .logo{width:54px;height:54px;border-radius:14px;background:linear-gradient(135deg,var(--cyan),var(--cyan2));
   color:#04121a;font-size:26px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;}
 .brand h1{font-size:20px;font-weight:600;letter-spacing:.01em;}
