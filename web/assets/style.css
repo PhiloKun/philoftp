@@ -149,11 +149,11 @@ tbody tr:hover{background:rgba(34,211,238,.04);}
 td:last-child{white-space:nowrap;text-align:right;}
 tbody tr{transition:.12s;} tbody tr:hover{background:rgba(34,211,238,.04);}
 td .mono,td.mono{font-size:13px;color:var(--haze);}
-.row-name{display:inline-flex;align-items:center;gap:2px;padding:4px 8px;margin:-4px -8px;border-radius:8px;transition:.12s;}
-.row-name.is-dir{cursor:pointer;color:var(--cyan);}
-.row-name.is-dir:hover{background:rgba(34,211,238,.1);color:#fff;}
-.row-name.is-dir::after{content:'';display:inline-block;margin-left:6px;opacity:0;transition:.12s;color:var(--cyan);font-size:11px;}
-.row-name.is-dir:hover::after{content:'双击进入';opacity:.85;margin-left:8px;}
+.row-name{display:inline-flex;align-items:center;gap:2px;padding:4px 8px;margin:-4px -8px;border-radius:8px;transition:.12s;cursor:pointer;}
+.row-name:hover{background:rgba(34,211,238,.08);}
+.row-name.is-dir{color:var(--cyan);}
+.row-name.is-dir:hover{background:rgba(34,211,238,.12);color:#fff;}
+.row-name.is-dir::after{content:'›';display:inline-block;margin-left:6px;opacity:.7;font-size:11px;}
 
 .tag{display:inline-block;padding:3px 11px;border-radius:999px;font-size:12px;font-family:var(--font-mono);white-space:nowrap;}
 .tag-ok{background:rgba(52,211,153,.14);color:var(--ok);border:1px solid rgba(52,211,153,.3);}

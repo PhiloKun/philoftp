@@ -117,13 +117,18 @@
       qa('[data-dl]', tb).forEach(function(b){ b.onclick = function(){ download(p, b.getAttribute('data-dl')); }; });
       qa('[data-del]', tb).forEach(function(b){ b.onclick = function(){ delItem(p, b.getAttribute('data-del')); }; });
       qa('.row-name', tb).forEach(function(n){
-        if(n.getAttribute('data-isdir') === '1'){
-          n.ondblclick = function(){
-            var name = n.getAttribute('data-name');
+        var isDir = n.getAttribute('data-isdir') === '1';
+        var name = n.getAttribute('data-name');
+        n.ondblclick = function(){
+          if(isDir){
             var np = p === '/' ? '/' + name : p + '/' + name;
             loadFiles(np);
-          };
-        }
+          } else {
+            preview(p, name);
+          }
+        };
+        // hover 提示：目录/文件分别提示双击动作
+        n.title = isDir ? '双击进入' : '双击预览';
       });
     });
   }
