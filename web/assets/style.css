@@ -168,6 +168,23 @@ td .mono,td.mono{font-size:13px;color:var(--haze);}
   box-shadow:0 30px 80px -20px rgba(0,0,0,.8),0 0 0 1px rgba(34,211,238,.1);max-height:90vh;overflow-y:auto;}
 .modal h3{font-size:18px;font-weight:600;margin:0 0 20px;}
 
+/* 删除/危险操作确认弹窗 */
+.confirm-box{width:400px;padding:30px 30px 24px;text-align:center;border-radius:18px;
+  border:1px solid rgba(251,113,133,.28);box-shadow:0 30px 80px -20px rgba(0,0,0,.8),0 0 0 1px rgba(251,113,133,.06);
+  animation:pop .28s cubic-bezier(.2,.9,.3,1.2) both;}
+@keyframes pop{from{opacity:0;transform:scale(.92) translateY(8px);}to{opacity:1;transform:none;}}
+.confirm-ico{width:64px;height:64px;margin:0 auto 16px;border-radius:18px;display:flex;align-items:center;justify-content:center;
+  font-size:30px;background:rgba(251,113,133,.12);border:1px solid rgba(251,113,133,.3);
+  box-shadow:inset 0 0 22px rgba(251,113,133,.08);animation:pulse 1.8s ease-in-out infinite;}
+@keyframes pulse{0%,100%{box-shadow:inset 0 0 22px rgba(251,113,133,.08),0 0 0 0 rgba(251,113,133,.0);}
+  50%{box-shadow:inset 0 0 22px rgba(251,113,133,.14),0 0 22px -4px rgba(251,113,133,.4);}}
+.confirm-box h3{font-size:19px;font-weight:700;margin:0 0 10px;letter-spacing:.02em;color:var(--txt);}
+.confirm-msg{font-size:14px;line-height:1.8;color:var(--haze);margin-bottom:24px;word-break:break-all;}
+.confirm-actions{display:flex;gap:12px;justify-content:center;}
+.confirm-actions .btn{min-width:108px;justify-content:center;padding:11px 20px;font-size:14px;font-weight:600;}
+.btn-md{display:inline-flex;align-items:center;justify-content:center;}
+@media (prefers-reduced-motion: reduce){.confirm-ico{animation:none;}}
+
 /* 文件预览弹层 */
 .preview-box{background:var(--panel);border:1px solid rgba(34,211,238,.25);border-radius:16px;width:min(900px,94vw);max-height:90vh;display:flex;flex-direction:column;
   box-shadow:0 30px 80px -20px rgba(0,0,0,.8),0 0 0 1px rgba(34,211,238,.1);overflow:hidden;}

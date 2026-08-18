@@ -100,6 +100,17 @@
 </div>
 
 <div class="overlay" id="modal"><div class="modal glass" id="modalBody"></div></div>
+<div class="overlay" id="confirm">
+  <div class="modal glass confirm-box">
+    <div class="confirm-ico" id="confirmIco">🗑</div>
+    <h3 id="confirmTitle">确认操作</h3>
+    <div class="confirm-msg" id="confirmMsg">确定要执行此操作吗？</div>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost btn-md" id="confirmCancel">取消</button>
+      <button class="btn btn-danger btn-md" id="confirmOk">确认</button>
+    </div>
+  </div>
+</div>
 <div class="overlay" id="preview"><div class="glass preview-box">
   <div class="preview-head"><span id="previewName">预览</span><button class="btn btn-ghost btn-sm" id="previewClose">✕ 关闭</button></div>
   <div class="preview-body" id="previewBody"></div>

@@ -12,6 +12,41 @@
     var t = el('toast'); t.textContent = msg; t.className = 'toast show ' + (ok?'ok':'err');
     clearTimeout(t._t); t._t = setTimeout(function(){ t.className = 'toast'; }, 2600);
   }
+
+  // 自定义确认弹窗：替换原生 confirm()，与「深空控制台」玻璃拟态风格统一
+  function confirmDialog(opts){
+    var type = opts.type || 'danger';
+    var icoMap = {
+      danger: { ico:'🗑', title:'确认删除', color:'var(--err)' },
+      warn:   { ico:'⚠', title:'确认操作', color:'var(--warn)' },
+      info:   { ico:'❔', title:'确认操作', color:'var(--cyan)' }
+    };
+    var m = icoMap[type] || icoMap.info;
+    el('confirmIco').textContent = m.ico;
+    el('confirmIco').style.color = m.color;
+    el('confirmTitle').textContent = opts.title || m.title;
+    el('confirmMsg').innerHTML = opts.message || '';
+    var okBtn = el('confirmOk');
+    okBtn.textContent = opts.okText || '确认';
+    okBtn.className = 'btn btn-md ' + (type === 'danger' ? 'btn-danger' : 'btn-primary');
+    el('confirm').classList.add('show');
+    var done = false;
+    function close(){ if(!done){ done = true; el('confirm').classList.remove('show'); cleanup(); } }
+    function confirmOk(){ if(done) return; done = true; el('confirm').classList.remove('show'); cleanup(); if(opts.onOk) opts.onOk(); }
+    function cleanup(){
+      el('confirmCancel').removeEventListener('click', close);
+      okBtn.removeEventListener('click', confirmOk);
+      el('confirm').removeEventListener('click', overlayClick);
+      document.removeEventListener('keydown', keyHandler);
+    }
+    function overlayClick(e){ if(e.target === el('confirm')) close(); }
+    function keyHandler(e){ if(e.key === 'Escape') close(); if(e.key === 'Enter') confirmOk(); }
+    el('confirmCancel').addEventListener('click', close);
+    okBtn.addEventListener('click', confirmOk);
+    el('confirm').addEventListener('click', overlayClick);
+    document.addEventListener('keydown', keyHandler);
+    okBtn.focus();
+  }
   function fmtSize(n){ if(n==null) return '—'; if(n<1024) return n+' B'; if(n<1048576) return (n/1024).toFixed(1)+' KB'; if(n<1073741824) return (n/1048576).toFixed(1)+' MB'; return (n/1073741824).toFixed(2)+' GB'; }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 
@@ -187,10 +222,17 @@
     var a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
   }
   function delItem(dir, name){
-    if(!confirm('确认删除「'+name+'」？')) return;
-    var full = (dir==='/'?'':dir) + '/' + name;
-    api('/api/files?path=' + encodeURIComponent(full), { method:'DELETE' }).then(function(x){
-      if(x.ok){ toast('已删除', true); loadFiles(); } else toast(x.d.error||'删除失败', false);
+    confirmDialog({
+      type:'danger',
+      title:'删除文件',
+      message:'确定要删除 <b style="color:var(--txt)">「'+esc(name)+'」</b> 吗？此操作将<b style="color:var(--err)">不可恢复</b>。',
+      okText:'确认删除',
+      onOk:function(){
+        var full = (dir==='/'?'':dir) + '/' + name;
+        api('/api/files?path=' + encodeURIComponent(full), { method:'DELETE' }).then(function(x){
+          if(x.ok){ toast('已删除', true); loadFiles(); } else toast(x.d.error||'删除失败', false);
+        });
+      }
     });
   }
   function mkdir(){
@@ -267,9 +309,16 @@
   }
   function delUser(name){
     if(name === state.me){ toast('不能删除当前登录账户', false); return; }
-    if(!confirm('确认删除用户「'+name+'」？此操作不可恢复。')) return;
-    api('/api/users/' + encodeURIComponent(name), { method:'DELETE' }).then(function(x){
-      if(x.ok){ toast('已删除', true); loadUsers(); } else toast(x.d.error||'删除失败', false);
+    confirmDialog({
+      type:'danger',
+      title:'删除用户',
+      message:'确定要删除用户 <b style="color:var(--txt)">「'+esc(name)+'」</b> 吗？该账户将<b style="color:var(--err)">永久失效</b>，此操作不可恢复。',
+      okText:'确认删除',
+      onOk:function(){
+        api('/api/users/' + encodeURIComponent(name), { method:'DELETE' }).then(function(x){
+          if(x.ok){ toast('已删除', true); loadUsers(); } else toast(x.d.error||'删除失败', false);
+        });
+      }
     });
   }
 
