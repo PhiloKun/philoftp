@@ -16,7 +16,7 @@ import (
 
 func main() {
 	configPath := flag.String("config", "configs/config.json", "配置文件路径")
-	usersPath := flag.String("users", "configs/users.json", "用户文件路径")
+	dbPath := flag.String("db", "configs/users.db", "SQLite 用户数据库路径")
 	ftpPort := flag.Int("ftp-port", 0, "FTP 端口(覆盖配置)")
 	webPort := flag.Int("web-port", 0, "Web 管理端口(覆盖配置)")
 	dataDir := flag.String("data", "", "数据根目录(覆盖配置)")
@@ -40,9 +40,9 @@ func main() {
 		log.Fatalf("创建数据目录失败: %v", err)
 	}
 
-	store, err := repository.NewUserStore(*usersPath)
+	store, err := repository.NewDBStore(*dbPath, config.DataDirOf(cfg))
 	if err != nil {
-		log.Fatalf("加载用户失败: %v", err)
+		log.Fatalf("初始化用户数据库失败: %v", err)
 	}
 
 	// 为默认用户创建 home
@@ -65,7 +65,7 @@ func main() {
 	fmt.Printf("  FTP  地址: ftp://%s:%d\n", ip, cfg.FTPPort)
 	fmt.Printf("  Web  管理: http://%s:%d\n", ip, cfg.WebPort)
 	fmt.Printf("  数据目录: %s\n", config.DataDirOf(cfg))
-	fmt.Println("  默认用户: admin/admin123 (可写)  guest/guest123 (只读)")
+	fmt.Println("  默认用户: admin/admin123 (管理员)")
 	fmt.Println("  按 Ctrl+C 停止")
 	fmt.Println("========================================")
 

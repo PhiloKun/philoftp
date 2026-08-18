@@ -19,7 +19,7 @@ import (
 )
 
 // StartWeb 启动 Web 管理端（Gin），返回监听地址。
-func StartWeb(cfg *config.Config, store *repository.UserStore) (string, error) {
+func StartWeb(cfg *config.Config, store *repository.DBStore) (string, error) {
 	auth := NewAuthManager(cfg, store)
 	appAuth = auth
 	r := gin.New()
@@ -42,16 +42,10 @@ func StartWeb(cfg *config.Config, store *repository.UserStore) (string, error) {
 		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(RegisterHTML))
 	})
 
-	// 受保护接口
+	// 受保护接口（所有已登录用户均可访问文件操作）
 	authed := r.Group("")
 	authed.Use(auth.RequireAuth())
 	authed.GET("/api/status", statusHandler(cfg, store))
-	authed.GET("/api/system", systemHandler)
-	authed.GET("/api/config", func(c *gin.Context) { configHandler(c, cfg) })
-	authed.PUT("/api/config", func(c *gin.Context) { updateConfigHandler(c, cfg) })
-	authed.GET("/api/users", usersHandler(store))
-	authed.POST("/api/users", upsertUserHandler(store))
-	authed.DELETE("/api/users/:username", deleteUserHandler(store))
 	authed.GET("/api/files", filesHandler(cfg, store))
 	authed.POST("/api/mkdir", mkdirHandler(cfg, store))
 	authed.POST("/api/upload", uploadHandler(cfg, store))
@@ -61,10 +55,21 @@ func StartWeb(cfg *config.Config, store *repository.UserStore) (string, error) {
 	authed.GET("/api/me", func(c *gin.Context) {
 		u, _ := auth.CurrentUserOf(c)
 		c.JSON(http.StatusOK, gin.H{
-			"username":  u.Username,
-			"read_only": u.ReadOnly,
+			"username": u.Username,
+			"role":     u.Role,
+			"is_admin": u.IsAdmin(),
 		})
 	})
+
+	// 管理员专属接口（用户管理 / 系统配置 / 系统信息）
+	admin := r.Group("")
+	admin.Use(auth.RequireAuth(), auth.RequireRole(model.RoleAdmin))
+	admin.GET("/api/system", systemHandler)
+	admin.GET("/api/config", func(c *gin.Context) { configHandler(c, cfg) })
+	admin.PUT("/api/config", func(c *gin.Context) { updateConfigHandler(c, cfg) })
+	admin.GET("/api/users", usersHandler(store))
+	admin.POST("/api/users", upsertUserHandler(store))
+	admin.DELETE("/api/users/:username", deleteUserHandler(store))
 
 	// 受保护页面（dashboard）
 	protected := r.Group("")
@@ -98,7 +103,7 @@ func corsMiddleware() gin.HandlerFunc {
 }
 
 // statusHandler 返回运行时状态
-func statusHandler(cfg *config.Config, store *repository.UserStore) gin.HandlerFunc {
+func statusHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		pasv := fmt.Sprintf("%d-%d", cfg.PASVMinPort, cfg.PASVMaxPort)
 		c.JSON(http.StatusOK, gin.H{
@@ -143,19 +148,24 @@ func updateConfigHandler(c *gin.Context, cfg *config.Config) {
 	c.JSON(http.StatusOK, gin.H{"ok": true, "message": msg, "web_port_changed": webPortChanged})
 }
 
-// registerHandler 处理 Web 端注册（创建一个可写普通用户）
-func registerHandler(cfg *config.Config, store *repository.UserStore, auth *AuthManager) gin.HandlerFunc {
+// registerHandler 处理 Web 端注册（创建一个普通用户，仅文件权限）
+func registerHandler(cfg *config.Config, store *repository.DBStore, auth *AuthManager) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !cfg.AllowRegisterEnabled() {
 			c.JSON(http.StatusForbidden, gin.H{"error": "当前已关闭自助注册"})
 			return
 		}
-		var req model.User
+		var req struct {
+			Username string `json:"username"`
+			Password string `json:"password"`
+			Home     string `json:"home"`
+		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "请求格式错误"})
 			return
 		}
-		if err := validateUser(req); err != nil {
+		user := model.User{Username: req.Username, PasswordHash: req.Password, Home: req.Home}
+		if err := validateUser(user); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -163,22 +173,22 @@ func registerHandler(cfg *config.Config, store *repository.UserStore, auth *Auth
 			c.JSON(http.StatusConflict, gin.H{"error": "用户名已被占用"})
 			return
 		}
-		req.Enabled = true
-		req.ReadOnly = false
-		if req.Home == "" {
-			req.Home = req.Username
+		user.Enabled = true
+		user.Role = model.RoleUser // 自助注册仅产生普通用户
+		if user.Home == "" {
+			user.Home = user.Username
 		}
-		if err := store.Upsert(req); err != nil {
+		if err := store.Upsert(user); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "保存失败"})
 			return
 		}
 		// 自动创建 home 目录
-		_ = os.MkdirAll(model.ResolveHome(config.DataDirOf(cfg), req.Home), 0755)
+		_ = os.MkdirAll(model.ResolveHome(config.DataDirOf(cfg), user.Home), 0755)
 		// 注册成功后直接登录
 		sid := newSID()
-		auth.table[sid] = session{username: req.Username, createdAt: time.Now()}
+		auth.table[sid] = session{username: user.Username, createdAt: time.Now()}
 		c.SetCookie(sessionCookie, sid, 60*60*24*7, "/", "", false, true)
-		c.JSON(http.StatusOK, gin.H{"username": req.Username, "read_only": req.ReadOnly})
+		c.JSON(http.StatusOK, gin.H{"username": user.Username, "role": user.Role, "is_admin": false})
 	}
 }
 
@@ -190,14 +200,14 @@ func validateUser(u model.User) error {
 	if !regexpMatch(`^[a-zA-Z0-9_\-]+$`, u.Username) {
 		return fmt.Errorf("用户名仅可包含字母、数字、下划线和连字符")
 	}
-	if err := checkPasswordStrength(u.Password); err != nil {
+	if err := checkPasswordStrength(u.PasswordHash); err != nil {
 		return err
 	}
 	return nil
 }
 
 // downloadHandler 文件下载：支持中文文件名、MIME 推断、Range 断点续传
-func downloadHandler(cfg *config.Config, store *repository.UserStore) gin.HandlerFunc {
+func downloadHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user, ok := currentUserOf(c)
 		if !ok {
@@ -269,7 +279,7 @@ func downloadHandler(cfg *config.Config, store *repository.UserStore) gin.Handle
 }
 
 // filesHandler 返回某用户目录下的文件/文件夹列表
-func filesHandler(cfg *config.Config, store *repository.UserStore) gin.HandlerFunc {
+func filesHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user, ok := currentUserOf(c)
 		if !ok {
@@ -311,15 +321,15 @@ func filesHandler(cfg *config.Config, store *repository.UserStore) gin.HandlerFu
 }
 
 // uploadHandler 单文件上传
-func uploadHandler(cfg *config.Config, store *repository.UserStore) gin.HandlerFunc {
+func uploadHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user, ok := currentUserOf(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "未登录"})
 			return
 		}
-		if user.ReadOnly {
-			c.JSON(http.StatusForbidden, gin.H{"error": "只读用户不可上传"})
+		if !user.CanWrite() {
+			c.JSON(http.StatusForbidden, gin.H{"error": "账户禁用，无法上传"})
 			return
 		}
 		path := c.PostForm("path")
@@ -343,15 +353,15 @@ func uploadHandler(cfg *config.Config, store *repository.UserStore) gin.HandlerF
 }
 
 // batchUploadHandler 多文件上传
-func batchUploadHandler(cfg *config.Config, store *repository.UserStore) gin.HandlerFunc {
+func batchUploadHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user, ok := currentUserOf(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "未登录"})
 			return
 		}
-		if user.ReadOnly {
-			c.JSON(http.StatusForbidden, gin.H{"error": "只读用户不可上传"})
+		if !user.CanWrite() {
+			c.JSON(http.StatusForbidden, gin.H{"error": "账户禁用，无法上传"})
 			return
 		}
 		path := c.PostForm("path")
@@ -382,15 +392,15 @@ func batchUploadHandler(cfg *config.Config, store *repository.UserStore) gin.Han
 }
 
 // mkdirHandler 新建目录
-func mkdirHandler(cfg *config.Config, store *repository.UserStore) gin.HandlerFunc {
+func mkdirHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user, ok := currentUserOf(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "未登录"})
 			return
 		}
-		if user.ReadOnly {
-			c.JSON(http.StatusForbidden, gin.H{"error": "只读用户不可建目录"})
+		if !user.CanWrite() {
+			c.JSON(http.StatusForbidden, gin.H{"error": "账户禁用，无法建目录"})
 			return
 		}
 		var req struct {
@@ -415,52 +425,62 @@ func mkdirHandler(cfg *config.Config, store *repository.UserStore) gin.HandlerFu
 	}
 }
 
-// upsertUserHandler 新增/更新用户
-func upsertUserHandler(store *repository.UserStore) gin.HandlerFunc {
+// upsertUserHandler 新增/更新用户（仅管理员可调用）
+func upsertUserHandler(store *repository.DBStore) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var u model.User
-		if err := c.ShouldBindJSON(&u); err != nil {
+		var req struct {
+			Username string `json:"username"`
+			Password string `json:"password"`
+			Home     string `json:"home"`
+			Role     string `json:"role"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "请求格式错误"})
 			return
 		}
-		if u.Username == "" || u.Password == "" {
+		if req.Username == "" || req.Password == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "用户名和密码必填"})
 			return
 		}
+		u := model.User{Username: req.Username, PasswordHash: req.Password, Home: req.Home, Role: req.Role, Enabled: true}
 		if u.Home == "" {
 			u.Home = u.Username
 		}
+		// 角色校验：仅允许 admin 或 user
+		if u.Role != model.RoleAdmin && u.Role != model.RoleUser {
+			u.Role = model.RoleUser
+		}
 		if err := store.Upsert(u); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "保存失败"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 	}
 }
 
-// deleteUserHandler 删除用户
-func deleteUserHandler(store *repository.UserStore) gin.HandlerFunc {
+// deleteUserHandler 删除用户（仅管理员可调用）
+func deleteUserHandler(store *repository.DBStore) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		name := c.Param("username")
 		if err := store.Delete(name); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "删除失败"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 	}
 }
 
-// usersHandler 返回用户列表
-func usersHandler(store *repository.UserStore) gin.HandlerFunc {
+// usersHandler 返回用户列表（仅管理员可调用）
+func usersHandler(store *repository.DBStore) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		users := store.List()
 		out := make([]map[string]interface{}, 0, len(users))
 		for _, u := range users {
 			out = append(out, map[string]interface{}{
-				"username":  u.Username,
-				"home":      u.Home,
-				"read_only": u.ReadOnly,
-				"enabled":   u.Enabled,
+				"username": u.Username,
+				"home":     u.Home,
+				"role":     u.Role,
+				"enabled":  u.Enabled,
 			})
 		}
 		c.JSON(http.StatusOK, out)

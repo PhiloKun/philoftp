@@ -157,10 +157,10 @@ var DashboardHTML = `<!DOCTYPE html>
     <div class="brand"><span class="logo">P</span><span>Philo<b>FTP</b></span></div>
     <nav class="nav" id="nav">
       <div class="nav-item active" data-view="overview"><span class="ico">▤</span><span>概览</span></div>
-      <div class="nav-item" data-view="users"><span class="ico">◍</span><span>用户管理</span></div>
+      <div class="nav-item" data-view="users" data-admin="1"><span class="ico">◍</span><span>用户管理</span></div>
       <div class="nav-item" data-view="files"><span class="ico">⊞</span><span>文件管理</span></div>
-      <div class="nav-item" data-view="basic"><span class="ico">⚙</span><span>基础设置</span></div>
-      <div class="nav-item" data-view="system"><span class="ico">⌘</span><span>系统配置</span></div>
+      <div class="nav-item" data-view="basic" data-admin="1"><span class="ico">⚙</span><span>基础设置</span></div>
+      <div class="nav-item" data-view="system" data-admin="1"><span class="ico">⌘</span><span>系统配置</span></div>
     </nav>
     <div class="side-foot">
       <div class="row"><span>当前 <b style="color:#e6edf7" id="curUser">…</b></span></div>
@@ -189,7 +189,7 @@ var DashboardHTML = `<!DOCTYPE html>
         <div class="toolbar">
           <div class="pathbar mono" id="filePath">/</div>
           <button class="btn btn-ghost btn-sm" id="mkdirBtn">新建目录</button>
-          <label class="btn btn-ghost btn-sm" style="margin:0;cursor:pointer;">上传<input type="file" id="uploadInput" multiple style="display:none"></label>
+          <label class="btn btn-ghost btn-sm" id="uploadLabel" style="margin:0;cursor:pointer;">上传<input type="file" id="uploadInput" multiple style="display:none"></label>
           <button class="btn btn-ghost btn-sm" id="refreshBtn">刷新</button>
         </div>
         <div class="card"><table id="fileTable"><thead><tr><th>名称</th><th>类型</th><th>大小</th><th>修改时间</th><th>操作</th></tr></thead><tbody id="fileBody"></tbody></table></div>
@@ -238,7 +238,12 @@ var DashboardHTML = `<!DOCTYPE html>
     <div class="field"><label>用户名（3-32 位，字母/数字/下划线/连字符）</label><input class="input" id="uUsername" type="text"></div>
     <div class="field"><label>密码</label><input class="input" id="uPassword" type="password"><div class="hint" id="pwHint"></div></div>
     <div class="field"><label>主目录（留空则默认与用户名相同）</label><input class="input" id="uHome" type="text" placeholder="例如 alice"></div>
-    <label class="check"><input type="checkbox" id="uReadOnly"> 只读用户（禁止上传/删除）</label>
+    <div class="field"><label>角色</label>
+      <select class="input" id="uRole">
+        <option value="user">普通用户（仅文件上传/下载/删除/建目录）</option>
+        <option value="admin">管理员（全部权限）</option>
+      </select>
+    </div>
     <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:8px;">
       <button class="btn btn-ghost" id="userCancel">取消</button>
       <button class="btn btn-primary" id="userSave">保存</button>
@@ -280,6 +285,12 @@ window.onerror=(msg,src,line)=>{toast('JS 错误: '+msg+' (line '+line+')',false
     const r=await G('/api/me');
     if(!r.ok){location.href='/login';return;}
     document.getElementById('curUser').textContent=r.data.username||'-';
+    // 角色分级：非管理员隐藏管理类入口，仅保留文件相关功能
+    window.__isAdmin = !!r.data.is_admin;
+    if(!window.__isAdmin){
+      document.querySelectorAll('[data-admin="1"]').forEach(el=>el.style.display='none');
+      const addBtn=document.getElementById('addUserBtn'); if(addBtn)addBtn.style.display='none';
+    }
     await loadOverview();
   }catch(e){console.error(e);showError('ovGrid','页面初始化失败: '+e.message);}
 })();
@@ -289,6 +300,7 @@ const crumbs={overview:'',users:'',files:'',basic:'修改端口 / FTPS / 注册�
 document.getElementById('nav').addEventListener('click',e=>{
   const it=e.target.closest('.nav-item'); if(!it) return;
   const v=it.dataset.view;
+  if(it.dataset.admin==='1' && !window.__isAdmin){ toast('权限不足：需要管理员角色',false); return; }
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n===it));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('active',s.id==='view-'+v));
   document.getElementById('viewTitle').textContent=titles[v];
@@ -302,11 +314,13 @@ document.getElementById('nav').addEventListener('click',e=>{
 
 async function loadOverview(){
   try{
-    const [s,u]=await Promise.all([G('/api/status'),G('/api/users')]);
-    if(!s.ok||!u.ok){showError('ovGrid','加载概览数据失败');return;}
+    const s=await G('/api/status'); if(!s.ok){showError('ovGrid','加载概览数据失败');return;}
+    // 用户总数仅管理员可见
+    let userCount='-';
+    if(window.__isAdmin){ const u=await G('/api/users'); if(u.ok&&Array.isArray(u.data))userCount=u.data.length; }
     const rows=[
       {k:'FTP 端口',v:s.data.ftp_port,ico:'⚡'},{k:'Web 端口',v:s.data.web_port,ico:'🌐'},
-      {k:'用户总数',v:Array.isArray(u.data)?u.data.length:s.data.user_count,ico:'◍'},
+      {k:'用户总数',v:userCount,ico:'◍'},
       {k:'PASV 端口',v:s.data.pasv_ports,ico:'📡'},{k:'FTPS',v:s.data.ftps?'已启用':'未启用',ico:'🔒'},
       {k:'运行时长',v:s.data.uptime,ico:'⏱'},
     ];
@@ -323,13 +337,13 @@ async function loadUsers(){
     body.innerHTML=list.map(u=>
       '<tr><td style="font-weight:500">'+esc(u.username)+'</td><td class="mono" style="color:var(--haze)">'+esc(u.home||'-')+'</td>'+
       '<td><span class="tag '+(u.enabled?'tag-ok':'tag-off')+'">'+(u.enabled?'启用':'禁用')+'</span></td>'+
-      '<td><span class="tag '+(u.read_only?'tag-ro':'tag-ok')+'">'+(u.read_only?'只读':'可读写')+'</span></td>'+
+      '<td><span class="tag '+(u.role==='admin'?'tag-adm':'tag-ok')+'">'+(u.role==='admin'?'管理员':'普通用户')+'</span></td>'+
       '<td><button class="btn btn-ghost btn-sm" onclick="delUser(\''+esc(u.username)+'\')">删除</button></td></tr>').join('');
   }catch(e){console.error(e);showError('userBody','加载用户失败: '+e.message);}
 }
 function openUserModal(){document.getElementById('userModalTitle').textContent='新增用户';
   ['uUsername','uPassword','uHome'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('uReadOnly').checked=false;document.getElementById('pwHint').textContent='';
+  document.getElementById('uRole').value='user';document.getElementById('pwHint').textContent='';
   document.getElementById('userOverlay').classList.add('show');}
 document.getElementById('addUserBtn').addEventListener('click',openUserModal);
 document.getElementById('userCancel').addEventListener('click',()=>document.getElementById('userOverlay').classList.remove('show'));
@@ -338,7 +352,7 @@ document.getElementById('uPassword').addEventListener('input',e=>{
   const map=['很弱','弱','中等','强','很强'];document.getElementById('pwHint').textContent=v?'强度：'+map[n]:'';});
 document.getElementById('userSave').addEventListener('click',async()=>{
   const u={username:document.getElementById('uUsername').value.trim(),password:document.getElementById('uPassword').value,
-    home:document.getElementById('uHome').value.trim(),read_only:document.getElementById('uReadOnly').checked};
+    home:document.getElementById('uHome').value.trim(),role:document.getElementById('uRole').value};
   if(u.username.length<3){toast('用户名至少 3 个字符',false);return;}
   if(u.password.length<6){toast('密码至少 6 个字符',false);return;}
   const r=await A('/api/users',{method:'POST',body:JSON.stringify(u)});
@@ -371,8 +385,8 @@ document.getElementById('refreshBtn').addEventListener('click',()=>loadFiles(cur
 document.getElementById('uploadInput').addEventListener('change',async e=>{
   const files=e.target.files; if(!files.length)return;
   const fd=new FormData(); for(const f of files)fd.append('files',f); fd.append('path',curPath);
-  const btn=e.target.previousElementSibling, old=btn.textContent; btn.innerHTML='<span class="spin"></span>上传中';
-  const r=await fetch('/api/upload/batch',{method:'POST',body:fd}).then(x=>x.json());
+  const btn=document.getElementById('uploadLabel'); const old=btn.textContent; btn.innerHTML='<span class="spin"></span>上传中';
+  let r; try{ r=await fetch('/api/upload/batch',{method:'POST',body:fd}).then(x=>x.json()); }catch(err){ r={}; }
   btn.textContent=old; e.target.value='';
   if(r.ok){toast('上传成功（'+r.count+' 个文件）',true);loadFiles(curPath);}else toast(r.error||'上传失败',false);
 });

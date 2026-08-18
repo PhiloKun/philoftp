@@ -16,19 +16,19 @@ import (
 	"philoftp/repository"
 )
 
-// ftpAuth 实现 server.Auth，校验 users.json 中的用户
+// ftpAuth 实现 server.Auth，校验数据库中的用户
 type ftpAuth struct {
-	store *repository.UserStore
+	store *repository.DBStore
 }
 
 func (a *ftpAuth) CheckPasswd(name, pass string) (bool, error) {
-	_, ok := a.store.Authenticate(name, pass)
-	return ok, nil
+	_, err := a.store.Authenticate(name, pass)
+	return err == nil, err
 }
 
 // ftpDriverFactory 为每个连接创建 Driver
 type ftpDriverFactory struct {
-	store *repository.UserStore
+	store *repository.DBStore
 	cfg   *config.Config
 }
 
@@ -36,9 +36,9 @@ func (f *ftpDriverFactory) NewDriver() (server.Driver, error) {
 	return &ftpDriver{store: f.store, cfg: f.cfg}, nil
 }
 
-// ftpDriver 单个连接的文件系统驱动，按用户 chroot + 只读控制
+// ftpDriver 单个连接的文件系统驱动，按用户 chroot + 角色控制
 type ftpDriver struct {
-	store *repository.UserStore
+	store *repository.DBStore
 	cfg   *config.Config
 	conn  *server.Conn // 保存连接引用，操作时实时取当前登录用户
 }
@@ -138,7 +138,7 @@ func (d *ftpDriver) DeleteDir(path string) error {
 	if !ok {
 		return os.ErrPermission
 	}
-	if u.ReadOnly {
+	if !u.CanWrite() {
 		return os.ErrPermission
 	}
 	return os.RemoveAll(d.resolve(path, home))
@@ -149,7 +149,7 @@ func (d *ftpDriver) DeleteFile(path string) error {
 	if !ok {
 		return os.ErrPermission
 	}
-	if u.ReadOnly {
+	if !u.CanWrite() {
 		return os.ErrPermission
 	}
 	return os.Remove(d.resolve(path, home))
@@ -160,7 +160,7 @@ func (d *ftpDriver) Rename(from, to string) error {
 	if !ok {
 		return os.ErrPermission
 	}
-	if u.ReadOnly {
+	if !u.CanWrite() {
 		return os.ErrPermission
 	}
 	return os.Rename(d.resolve(from, home), d.resolve(to, home))
@@ -171,7 +171,7 @@ func (d *ftpDriver) MakeDir(path string) error {
 	if !ok {
 		return os.ErrPermission
 	}
-	if u.ReadOnly {
+	if !u.CanWrite() {
 		return os.ErrPermission
 	}
 	return os.MkdirAll(d.resolve(path, home), 0755)
@@ -205,7 +205,7 @@ func (d *ftpDriver) PutFile(path string, r io.Reader, appendData bool) (int64, e
 	if !ok {
 		return 0, os.ErrPermission
 	}
-	if u.ReadOnly {
+	if !u.CanWrite() {
 		return 0, os.ErrPermission
 	}
 	p := d.resolve(path, home)
@@ -237,14 +237,14 @@ var _ server.FileInfo = (*fileInfo)(nil)
 // ftpController 保存 FTP 服务器的可热重载句柄
 type ftpController struct {
 	cfg   *config.Config
-	store *repository.UserStore
+	store *repository.DBStore
 	mu    sync.Mutex
 	srv   *server.Server
 }
 
 // StartFTP 启动 FTP 服务器，并注册热重载回调，使配置变更（端口/PASV/FTPS 等）
 // 能够在不重启整个进程的前提下即时生效。返回当前 server 与错误。
-func StartFTP(cfg *config.Config, store *repository.UserStore) (*server.Server, error) {
+func StartFTP(cfg *config.Config, store *repository.DBStore) (*server.Server, error) {
 	ctl := &ftpController{cfg: cfg, store: store}
 	if err := ctl.start(); err != nil {
 		return nil, err

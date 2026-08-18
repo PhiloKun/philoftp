@@ -24,14 +24,14 @@ type session struct {
 
 // AuthManager 管理内存会话
 type AuthManager struct {
-	store *repository.UserStore
+	store *repository.DBStore
 	cfg   *config.Config
 	// sid -> session
 	table map[string]session
 }
 
 // NewAuthManager 创建鉴权管理器
-func NewAuthManager(cfg *config.Config, store *repository.UserStore) *AuthManager {
+func NewAuthManager(cfg *config.Config, store *repository.DBStore) *AuthManager {
 	return &AuthManager{store: store, cfg: cfg, table: make(map[string]session)}
 }
 
@@ -51,9 +51,9 @@ func (a *AuthManager) Login(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "请求格式错误"})
 		return
 	}
-	user, ok := a.store.Authenticate(req.Username, req.Password)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "用户名或密码错误"})
+	user, err := a.store.Authenticate(req.Username, req.Password)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 	sid := newSID()
@@ -61,7 +61,8 @@ func (a *AuthManager) Login(c *gin.Context) {
 	c.SetCookie(sessionCookie, sid, 60*60*24*7, "/", "", false, true)
 	c.JSON(http.StatusOK, gin.H{
 		"username": user.Username,
-		"read_only": user.ReadOnly,
+		"role":     user.Role,
+		"is_admin": user.IsAdmin(),
 	})
 }
 
@@ -113,4 +114,21 @@ func (a *AuthManager) CurrentUserOf(c *gin.Context) (model.User, bool) {
 		}
 	}
 	return model.User{}, false
+}
+
+// RequireRole 是 Gin 中间件，校验当前用户是否具备指定角色。
+// 非管理员访问管理员接口时返回 403，严格分级。
+func (a *AuthManager) RequireRole(role string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user, ok := a.currentUser(c)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "未登录或会话已过期"})
+			return
+		}
+		if user.Role != role {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "权限不足：需要 " + role + " 角色"})
+			return
+		}
+		c.Next()
+	}
 }

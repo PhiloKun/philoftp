@@ -5,8 +5,8 @@
 ## 特性
 
 - 🚀 **高性能**：Go 编写，并发处理多客户端，资源占用低
-- 👥 **多用户 + 密码**：每个用户独立账号密码，存于 `users.json`
-- 🔒 **权限控制**：每个用户可设为「可写」或「只读」，且各自独立根目录（chroot 隔离，互不可见）
+- 👥 **多用户 + 密码**：每个用户独立账号密码，存储于 SQLite 数据库（`configs/users.db`），密码以 bcrypt 加盐哈希落盘
+- 🔒 **权限控制（RBAC 分级）**：两级角色 `admin`（全部权限）与 `user`（仅文件操作），各自独立根目录（chroot 隔离，互不可见）
 - 🌐 **Web 管理端**：浏览器即可管理用户、浏览/上传/下载文件，无需命令行
 - 📦 **单文件分发**：编译为单个可执行文件，双击即可运行，无需安装运行时
 - 🔌 **被动模式**：内置 PASV 端口范围，适配内网/NAT 环境
@@ -36,8 +36,7 @@ make build        # 编译到 dist/macos/philoftp
 
 | 用户 | 密码 | 权限 | 根目录 |
 |------|------|------|--------|
-| `admin` | `admin123` | 可写 | `data/admin` |
-| `guest` | `guest123` | 只读 | `data/guest` |
+| `admin` | `admin123` | 管理员（全部权限） | `data/admin` |
 
 > ⚠️ 首次部署请务必修改默认密码，或直接删除默认用户在 Web 端新建。
 
@@ -46,7 +45,7 @@ make build        # 编译到 dist/macos/philoftp
 ```bash
 ./philoftp \
   -config config.json \   # 配置文件路径
-  -users  users.json \    # 用户文件路径
+  -db     users.db \      # SQLite 用户数据库路径
   -ftp-port 2121 \        # FTP 控制端口（覆盖配置）
   -web-port 8080 \        # Web 管理端口（覆盖配置）
   -data   ./data          # 数据根目录（覆盖配置）
@@ -59,7 +58,7 @@ make build        # 编译到 dist/macos/philoftp
 - **概览**：状态卡片一览（FTP/Web 端口、用户数、PASV 范围、FTPS 状态、运行时长）
 - **登录鉴权**：Web 端基于会话（HTTP-Only Cookie）登录，未登录自动跳转登录页；所有管理与数据接口均受保护
 - **自助注册**：默认开放注册（可在 `config.json` 关闭 `allow_register`），注册即创建独立文件空间的可写用户；表单含用户名/密码格式校验与实时密码强度提示
-- **用户管理**：新增（弹层表单，含实时密码强度提示）/ 删除用户，设置主目录、只读/可写、启用状态
+- **用户管理**：新增（弹层表单，含实时密码强度提示）/ 删除用户，设置主目录、角色（管理员/普通用户）、启用状态
 - **文件管理**：按用户浏览文件树、上传、批量上传、新建目录、下载；下载带实时进度条与速度显示
 - **基础设置**：在 Web 端查看并修改配置（FTP/Web 端口、PASV 范围、数据目录、FTPS 开关与证书、自助注册开关），保存即写入 `config.json` 并**即时生效**：FTP 服务（端口/PASV/FTPS）自动热重载、数据目录与注册开关实时读取；仅 Web 管理端口需重启服务进程后切换监听
 - **系统配置**：运行时信息（Go 版本、协程数、运行时长、数据/配置路径等）与关于
@@ -95,23 +94,22 @@ sudo ufw allow 21100:21110/tcp
 sudo ufw allow 8080/tcp
 ```
 
-## 用户文件 `users.json`
+## 用户与权限（SQLite + 角色分级）
 
-```json
-[
-  {
-    "username": "alice",
-    "password": "secret",
-    "home": "alice",
-    "read_only": false,
-    "enabled": true
-  }
-]
-```
+用户数据存储在 SQLite 数据库 `configs/users.db`（纯 Go 驱动，无 cgo，单二进制可分发），密码以 **bcrypt 加盐哈希**存储，绝不明文落盘。首次启动会自动创建默认管理员 `admin / admin123`；若同目录存在旧版 `configs/users.json`，将自动迁移为哈希记录（明文密码 → bcrypt）。
 
-- `home`：相对 `data_dir` 的用户根目录，用户登录后只能看到此目录
-- `read_only`：`true` 时不可上传/删除/建目录，仅可下载
-- `enabled`：`false` 时该用户无法登录
+系统采用**两级角色**的 RBAC 权限模型，严格分级：
+
+| 角色 | 权限范围 |
+| --- | --- |
+| `admin`（管理员） | 全部权限：用户管理、系统配置、文件上传/下载/删除/建目录/浏览、系统信息与状态查看 |
+| `user`（普通用户） | 仅文件操作：上传、下载、删除、新建目录、浏览自身目录；**无法访问**用户管理、基础设置、系统配置等管理接口（调用将返回 403） |
+
+- 管理类接口（`/api/users`、`/api/config`、`/api/system`）服务端通过 `RequireRole("admin")` 中间件强制鉴权，前端亦对非管理员隐藏对应入口。
+- 至少保留一个管理员账户：将最后一个管理员降级或删除会被拒绝（"至少需保留一个管理员账户"）。
+- `enabled`：`false` 时该用户无法登录，且禁用账户不可执行任何写操作。
+
+> 安全提示：部署后请尽快在「用户管理」中修改 `admin` 默认密码。
 
 ## 各平台客户端连接示例
 
@@ -160,7 +158,7 @@ philoftp/
 ├── config/            # 配置层
 │   └── config.go        # Config 结构体、加载/持久化、DataDirOf、ToAPI
 ├── repository/        # 数据访问层（持久化）
-│   └── userstore.go     # UserStore：用户读写锁 + JSON 持久化
+│   └── dbstore.go       # DBStore：基于 SQLite 的用户存储（bcrypt 哈希 + 迁移 + 最后管理员保护）
 ├── service/           # 业务/服务层
 │   └── ftpserver.go     # FTP 服务器启动与文件系统驱动（goftp/server）
 ├── handler/           # 接入层（HTTP / 页面）
@@ -168,7 +166,7 @@ philoftp/
 │   └── web_ui.go        # 内置 Web 管理页面 HTML
 ├── configs/           # 默认配置模板（运行时从此处读取）
 │   ├── config.json       # 服务器配置（端口、PASV 范围、FTPS 等）
-│   └── users.json        # 默认用户（admin / guest）
+│   └── users.db          # SQLite 用户数据库（默认 admin/admin123，密码 bcrypt 哈希）
 ├── data/              # 文件存储根目录（运行时生成，含各用户 home）
 ├── dist/              # 各平台构建产物
 │   ├── macos/           # macOS 二进制 / zip / PhiloFTP.app
