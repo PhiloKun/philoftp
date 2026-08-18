@@ -47,6 +47,58 @@
     document.addEventListener('keydown', keyHandler);
     okBtn.focus();
   }
+
+  // 自定义输入弹窗：替换原生 prompt()，与玻璃拟态风格统一
+  function promptDialog(opts){
+    el('promptTitle').textContent = opts.title || '请输入';
+    el('promptMsg').textContent = opts.message || '';
+    el('promptIco').textContent = opts.icon || '📁';
+    var input = el('promptInput');
+    var hint = el('promptHint');
+    input.value = opts.value || '';
+    input.placeholder = opts.placeholder || '';
+    input.type = opts.inputType || 'text';
+    hint.textContent = '';
+    hint.className = 'hint';
+    hint.style.opacity = '0';
+    el('promptOk').textContent = opts.okText || '确定';
+    el('promptCancel').textContent = opts.cancelText || '取消';
+    el('prompt').classList.add('show');
+    var done = false;
+    function close(){
+      if(done) return; done = true;
+      el('prompt').classList.remove('show');
+      cleanup();
+      if(opts.onCancel) opts.onCancel();
+    }
+    function submit(){
+      if(done) return;
+      var v = input.value;
+      if(opts.validate && !opts.validate(v)) return;
+      done = true;
+      el('prompt').classList.remove('show');
+      cleanup();
+      if(opts.onOk) opts.onOk(v);
+    }
+    function cleanup(){
+      el('promptCancel').removeEventListener('click', close);
+      el('promptOk').removeEventListener('click', submit);
+      el('prompt').removeEventListener('click', overlayClick);
+      input.removeEventListener('keydown', onKey);
+      input.removeEventListener('input', onInput);
+    }
+    function overlayClick(e){ if(e.target === el('prompt')) close(); }
+    function onKey(e){ if(e.key === 'Escape') close(); if(e.key === 'Enter') submit(); }
+    function onInput(){
+      if(opts.onInput) opts.onInput(input.value, hint);
+    }
+    el('promptCancel').addEventListener('click', close);
+    el('promptOk').addEventListener('click', submit);
+    el('prompt').addEventListener('click', overlayClick);
+    input.addEventListener('keydown', onKey);
+    input.addEventListener('input', onInput);
+    setTimeout(function(){ input.focus(); input.select(); }, 30);
+  }
   function fmtSize(n){ if(n==null) return '—'; if(n<1024) return n+' B'; if(n<1048576) return (n/1024).toFixed(1)+' KB'; if(n<1073741824) return (n/1048576).toFixed(1)+' MB'; return (n/1073741824).toFixed(2)+' GB'; }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 
@@ -236,10 +288,34 @@
     });
   }
   function mkdir(){
-    var name = prompt('新建目录名称：'); if(!name) return;
-    api('/api/mkdir', { method:'POST', body: JSON.stringify({ path: state.curPath, name: name }) }).then(function(x){
-      if(x.ok){ toast('已创建目录「'+name+'」，可在文件列表中打开或返回上一级', true); loadFiles(); } else toast(x.d.error||'创建失败', false);
+    promptDialog({
+      title:'新建目录',
+      icon:'📁',
+      message:'请输入新目录的名称，将创建在当前路径下：',
+      placeholder:'例如 docs / 报告 / 2026',
+      okText:'创建',
+      validate:function(v){
+        v = (v || '').trim();
+        if(!v){ showPromptHint('请输入目录名称', 'error'); return false; }
+        if(/[\\/:*?"<>|]/.test(v)){ showPromptHint('名称不能包含 \\ / : * ? " < > | 字符', 'error'); return false; }
+        if(v === '.' || v === '..'){ showPromptHint('不能使用 . 或 ..', 'error'); return false; }
+        if(v.length > 80){ showPromptHint('名称过长（最多 80 个字符）', 'error'); return false; }
+        return true;
+      },
+      onOk:function(v){
+        v = (v || '').trim();
+        api('/api/mkdir', { method:'POST', body: JSON.stringify({ path: state.curPath, name: v }) }).then(function(x){
+          if(x.ok){ toast('已创建目录「'+v+'」，可在文件列表中打开或返回上一级', true); loadFiles(); }
+          else toast(x.d.error||'创建失败', false);
+        });
+      }
     });
+  }
+  function showPromptHint(msg, type){
+    var h = el('promptHint');
+    h.textContent = msg;
+    h.className = 'hint visible' + (type === 'error' ? ' error' : type === 'ok' ? ' ok' : '');
+    h.style.opacity = '1';
   }
   function upload(files){
     if(!files || !files.length) return;

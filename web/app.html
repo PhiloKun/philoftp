@@ -111,6 +111,21 @@
     </div>
   </div>
 </div>
+<div class="overlay" id="prompt">
+  <div class="modal glass confirm-box prompt-box">
+    <div class="confirm-ico prompt-ico" id="promptIco">📁</div>
+    <h3 id="promptTitle">新建目录</h3>
+    <div class="prompt-msg" id="promptMsg">请输入新目录的名称</div>
+    <div class="field" style="margin-bottom:18px">
+      <input class="input" id="promptInput" autocomplete="off" maxlength="128">
+      <div class="hint" id="promptHint" style="opacity:0"></div>
+    </div>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost btn-md" id="promptCancel">取消</button>
+      <button class="btn btn-primary btn-md" id="promptOk">创建</button>
+    </div>
+  </div>
+</div>
 <div class="overlay" id="preview"><div class="glass preview-box">
   <div class="preview-head"><span id="previewName">预览</span><button class="btn btn-ghost btn-sm" id="previewClose">✕ 关闭</button></div>
   <div class="preview-body" id="previewBody"></div>
