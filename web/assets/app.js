@@ -267,6 +267,35 @@
 
     // 加载概览页"局域网访问"卡片的二维码与访问信息
     loadOverviewAccess();
+    // KPI 数字跳动动画
+    animateKpiNumbers();
+  }
+
+  // KPI 数字从 0 滚动到目标值（仅纯数字的 ov-kpi-big）
+  function animateKpiNumbers(){
+    qa('.ov-kpi-big').forEach(function(el){
+      var raw = el.getAttribute('data-big') || el.textContent;
+      var text = raw.trim();
+      // 仅对纯数字/小数+% 生效（排除版本号等多点字符串）
+      if(!/^[\d]+(\.\d+)?%?$/.test(text)) return;
+      var isPct = text.indexOf('%') >= 0;
+      var numStr = text.replace('%','');
+      var target = parseFloat(numStr.replace(',',''));
+      var decimals = (numStr.split('.')[1] || '').length;
+      el.setAttribute('data-target', target);
+      var start = null;
+      var dur = 900;
+      function step(ts){
+        if(!start) start = ts;
+        var p = Math.min((ts-start)/dur, 1);
+        // easeOutCubic
+        var e = 1 - Math.pow(1-p, 3);
+        var val = target * e;
+        el.textContent = val.toFixed(decimals) + (isPct ? '%' : '');
+        if(p < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    });
   }
 
   // 加载概览页局域网访问卡片（二维码 + IP/主机名/端口 + 访问链接）
@@ -792,6 +821,8 @@
         var check = '<input type="checkbox" data-check="'+esc(f.name)+'" data-path="'+esc(fullPath(p,f.name))+'" title="选择 '+(f.is_dir?'目录':'文件')+'">';
         return '<tr><td class="chk-cell">'+check+'</td><td>'+nameCell+'</td><td class="mono">'+fmtSize(f.size)+'</td><td class="mono">'+esc(f.mod_time||'')+'</td><td>'+ops+'</td></tr>';
       }).join('');
+      // 表格行错峰入场
+      tb.classList.add('stagger-rows');
       // 勾选变更时同步批量栏
       qa('input[data-check]', tb).forEach(function(cb){ cb.onchange = syncSelection; });
       syncSelection();
@@ -1089,6 +1120,7 @@
           '<button class="btn btn-ghost btn-sm" data-edit="'+esc(u.username)+'">编辑</button> '+
           (canDel?'<button class="btn btn-danger btn-sm" data-del="'+esc(u.username)+'">删除</button>':'')+'</td></tr>';
       }).join('');
+      tb.classList.add('stagger-rows');
       qa('[data-edit]', tb).forEach(function(b){ b.onclick = function(){ openUserModal(b.getAttribute('data-edit')); }; });
       qa('[data-del]', tb).forEach(function(b){ b.onclick = function(){ delUser(b.getAttribute('data-del')); }; });
     });

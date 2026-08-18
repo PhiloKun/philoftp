@@ -10,6 +10,14 @@
 html,body{height:100%;}
 body{background:var(--bg);color:var(--txt);font-family:var(--font-body);min-height:100vh;line-height:1.5;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
 .mono{font-family:var(--font-mono);}
+/* 背景装饰大字：增强空间纵深（弱化、被内容覆盖） */
+body::before{content:'FTP';position:fixed;right:-0.06em;bottom:-0.22em;z-index:0;pointer-events:none;
+  font-family:var(--font-mono);font-weight:800;font-size:36vw;line-height:1;color:transparent;
+  -webkit-text-stroke:1px rgba(34,211,238,.06);text-stroke:1px rgba(34,211,238,.06);
+  letter-spacing:-0.05em;user-select:none;transform:rotate(-4deg);}
+/* 噪点质感覆盖层：增加胶片/终端颗粒感 */
+body::after{content:'';position:fixed;inset:0;z-index:60;pointer-events:none;opacity:.045;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
 
 /* 背景辉光 + 网格 */
 .aurora{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none;}
@@ -141,6 +149,13 @@ body{background:var(--bg);color:var(--txt);font-family:var(--font-body);min-heig
 .stagger>*:nth-child(1){animation-delay:.03s} .stagger>*:nth-child(2){animation-delay:.07s}
 .stagger>*:nth-child(3){animation-delay:.11s} .stagger>*:nth-child(4){animation-delay:.15s}
 .stagger>*:nth-child(5){animation-delay:.19s} .stagger>*:nth-child(6){animation-delay:.23s}
+/* 表格行错峰入场（transform 对 tr 无效，仅用透明度） */
+.stagger-rows>tr{animation:rowIn .3s ease both;}
+.stagger-rows>tr:nth-child(1){animation-delay:.02s}.stagger-rows>tr:nth-child(2){animation-delay:.05s}
+.stagger-rows>tr:nth-child(3){animation-delay:.08s}.stagger-rows>tr:nth-child(4){animation-delay:.11s}
+.stagger-rows>tr:nth-child(5){animation-delay:.14s}.stagger-rows>tr:nth-child(6){animation-delay:.17s}
+.stagger-rows>tr:nth-child(n+7){animation-delay:.20s}
+@keyframes rowIn{from{opacity:0;}to{opacity:1;}}
 
 .grid{display:grid;gap:16px;}
 .grid-3{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));}
@@ -148,7 +163,8 @@ body{background:var(--bg);color:var(--txt);font-family:var(--font-body);min-heig
 .grid-2>div:first-child,.grid-2>div:last-child{min-width:0;}
 @media(max-width:760px){.grid-2{grid-template-columns:1fr;}}
 
-.card{background:rgba(18,26,43,.6);border:1px solid var(--line);border-radius:14px;position:relative;transition:.2s;}
+.card{background:rgba(13,19,32,.62);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1px solid var(--line);border-radius:14px;position:relative;transition:.2s;}
 .card::after{content:"";position:absolute;inset:0;border-radius:14px;pointer-events:none;
   background:linear-gradient(120deg, rgba(34,211,238,.06), transparent 40%);opacity:0;transition:.2s;}
 .card:hover{transform:translateY(-3px);border-color:rgba(34,211,238,.4);box-shadow:0 12px 36px -14px rgba(34,211,238,.4);}
