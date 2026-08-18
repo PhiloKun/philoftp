@@ -14,29 +14,29 @@ var StartTime = time.Now()
 
 // Config 是程序主配置，保存在 config.json
 type Config struct {
-	FTPPort     int    `json:"ftp_port"` // FTP 控制端口
-	PASVMinPort int    `json:"pasv_min_port"` // 被动模式端口范围（最小）
-	PASVMaxPort int    `json:"pasv_max_port"` // 被动模式端口范围（最大）
-	WebPort     int    `json:"web_port"` // Web 管理端端口
-	DataDir     string `json:"data_dir"` // 文件根目录（用户 home 的相对基准）
-	TLSCert     string `json:"tls_cert"` // FTPS 证书（留空则禁用）
-	TLSKey      string `json:"tls_key"`  // FTPS 私钥
-	EnableFTPS  bool   `json:"enable_ftps"` // 是否启用 FTPS
-	AllowRegister bool `json:"allow_register"` // 是否允许 Web 端自助注册（默认 true，生产可关闭）
-	mu          sync.RWMutex
-	configPath  string // 配置文件路径，供运行时保存使用
-	ftpReloader func(c *Config) error // 配置变更后热重载 FTP 服务的回调（由 StartFTP 注册）
+	FTPPort       int    `json:"ftp_port"`       // FTP 控制端口
+	PASVMinPort   int    `json:"pasv_min_port"`  // 被动模式端口范围（最小）
+	PASVMaxPort   int    `json:"pasv_max_port"`  // 被动模式端口范围（最大）
+	WebPort       int    `json:"web_port"`       // Web 管理端端口
+	DataDir       string `json:"data_dir"`       // 文件根目录（用户 home 的相对基准）
+	TLSCert       string `json:"tls_cert"`       // FTPS 证书（留空则禁用）
+	TLSKey        string `json:"tls_key"`        // FTPS 私钥
+	EnableFTPS    bool   `json:"enable_ftps"`    // 是否启用 FTPS
+	AllowRegister bool   `json:"allow_register"` // 是否允许 Web 端自助注册（默认 true，生产可关闭）
+	mu            sync.RWMutex
+	configPath    string                // 配置文件路径，供运行时保存使用
+	ftpReloader   func(c *Config) error // 配置变更后热重载 FTP 服务的回调（由 StartFTP 注册）
 }
 
 // DefaultConfig 返回默认配置
 func DefaultConfig() *Config {
 	return &Config{
-		FTPPort:     2121,
-		PASVMinPort: 21100,
-		PASVMaxPort: 21110,
-		WebPort:     8080,
-		DataDir:     "data",
-		EnableFTPS:  false,
+		FTPPort:       2121,
+		PASVMinPort:   21100,
+		PASVMaxPort:   21110,
+		WebPort:       8080,
+		DataDir:       "data",
+		EnableFTPS:    false,
 		AllowRegister: true,
 	}
 }
@@ -135,15 +135,15 @@ func (c *Config) ToAPI() map[string]interface{} {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return map[string]interface{}{
-		"ftp_port":      c.FTPPort,
-		"pasv_min_port": c.PASVMinPort,
-		"pasv_max_port": c.PASVMaxPort,
-		"web_port":      c.WebPort,
-		"data_dir":      c.DataDir,
-		"enable_ftps":   c.EnableFTPS,
+		"ftp_port":       c.FTPPort,
+		"pasv_min_port":  c.PASVMinPort,
+		"pasv_max_port":  c.PASVMaxPort,
+		"web_port":       c.WebPort,
+		"data_dir":       c.DataDir,
+		"enable_ftps":    c.EnableFTPS,
 		"allow_register": c.AllowRegister,
-		"tls_cert":      c.TLSCert,
-		"tls_key":       c.TLSKey,
+		"tls_cert":       c.TLSCert,
+		"tls_key":        c.TLSKey,
 	}
 }
 

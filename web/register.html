@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PhiloFTP · 注册</title>
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div class="aurora"></div>
+<div class="auth-wrap">
+  <form class="auth-card glass" id="f" autocomplete="off">
+    <div class="brand">
+      <div class="logo">⬡</div>
+      <h1>Philo<b>FTP</b></h1>
+      <p>创建新账户</p>
+    </div>
+    <div class="alert" id="alert"></div>
+    <div class="field">
+      <label>用户名</label>
+      <input class="input" id="u" placeholder="至少 3 个字符" autofocus>
+      <div class="hint" id="uHint"></div>
+    </div>
+    <div class="field">
+      <label>密码</label>
+      <div class="input-wrap">
+        <input class="input" id="p" type="password" placeholder="设置密码">
+        <span class="toggle" id="t">显示</span>
+      </div>
+      <div class="strength" id="strength">
+        <span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span>
+      </div>
+      <div class="hint" id="pHint"></div>
+    </div>
+    <div class="field">
+      <label>确认密码</label>
+      <input class="input" id="pc" type="password" placeholder="再次输入密码">
+    </div>
+    <button class="btn btn-primary" id="b" type="submit">注 册</button>
+    <div class="auth-link"><a href="/login">返回登录</a></div>
+  </form>
+</div>
+<script src="/assets/auth.js"></script>
+<script>initRegister();</script>
+<noscript style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;background:#070a12;font-family:sans-serif">请启用 JavaScript</noscript>
+</body>
+</html>

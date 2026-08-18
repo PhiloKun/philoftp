@@ -54,7 +54,7 @@ func main() {
 		log.Fatalf("启动 FTP 失败: %v", err)
 	}
 
-	if _, err := handler.StartWeb(cfg, store); err != nil {
+	if _, err := handler.StartWeb(cfg, store, webFS); err != nil {
 		log.Fatalf("启动 Web 失败: %v", err)
 	}
 

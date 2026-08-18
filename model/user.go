@@ -11,10 +11,10 @@ const (
 // User 表示一个 FTP / Web 用户
 type User struct {
 	Username     string `json:"username"`
-	PasswordHash string `json:"-"`        // bcrypt 哈希，绝不暴露给前端
-	Home         string `json:"home"`     // 用户根目录（相对 DataDir 或绝对路径）
-	Role         string `json:"role"`     // "admin" | "user"
-	Enabled      bool   `json:"enabled"`  // 是否启用
+	PasswordHash string `json:"-"`       // bcrypt 哈希，绝不暴露给前端
+	Home         string `json:"home"`    // 用户根目录（相对 DataDir 或绝对路径）
+	Role         string `json:"role"`    // "admin" | "user"
+	Enabled      bool   `json:"enabled"` // 是否启用
 }
 
 // IsAdmin 判断是否为管理员

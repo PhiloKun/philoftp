@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PhiloFTP · 控制台</title>
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div class="aurora"></div>
+<div class="layout" id="layout" style="display:none">
+  <aside class="side glass">
+    <div class="brand"><span class="logo">⬡</span>Philo<b style="color:var(--cyan)">FTP</b></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot">
+      <div class="row"><span id="meName">—</span></div>
+      <button class="btn btn-danger btn-sm" style="width:100%" id="logout">退出登录</button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar glass">
+      <div>
+        <h1 id="title">概览</h1>
+        <div class="crumb" id="crumb">控制台 · 概览</div>
+      </div>
+      <div class="live"><span class="dot"></span><span id="liveTxt">运行中</span></div>
+    </header>
+
+    <main class="content">
+      <!-- 概览 -->
+      <section class="view active" id="v-overview">
+        <div class="grid grid-3 stagger" id="statCards"></div>
+        <div class="grid grid-2" style="margin-top:16px">
+          <div class="card pad"><div class="lbl">⚡ 实时状态</div><div id="ovStatus" class="about-line">加载中…</div></div>
+          <div class="card pad"><div class="lbl">⚙ 系统信息</div><div id="ovAbout" class="about-line">加载中…</div></div>
+        </div>
+      </section>
+
+      <!-- 文件 -->
+      <section class="view" id="v-files">
+        <div class="sec-head"><h2>文件管理</h2></div>
+        <div class="toolbar">
+          <span class="pathbar" id="pathBar">/</span>
+          <button class="btn btn-ghost btn-sm" id="newDirBtn">＋ 新建目录</button>
+          <button class="btn btn-ghost btn-sm" id="refreshBtn">⟳ 刷新</button>
+          <label class="btn btn-primary btn-sm" style="margin:0">⬆ 上传<input id="fileInput" type="file" multiple style="display:none"></label>
+        </div>
+        <div class="card" style="padding:6px"><table><thead><tr><th>名称</th><th>大小</th><th>修改时间</th><th style="width:160px">操作</th></tr></thead><tbody id="fileList"></tbody></table></div>
+        <div class="empty" id="fileEmpty" style="display:none">此目录为空</div>
+      </section>
+
+      <!-- 用户管理 -->
+      <section class="view" id="v-users" data-admin>
+        <div class="sec-head"><h2>用户管理</h2><button class="btn btn-primary btn-sm" id="addUserBtn">＋ 新增用户</button></div>
+        <div class="card" style="padding:6px"><table><thead><tr><th>用户名</th><th>角色</th><th>状态</th><th>主目录</th><th style="width:160px">操作</th></tr></thead><tbody id="userList"></tbody></table></div>
+      </section>
+
+      <!-- 基础设置 -->
+      <section class="view" id="v-basic" data-admin>
+        <div class="sec-head"><h2>基础设置</h2><button class="btn btn-primary btn-sm" id="saveBasicBtn">保存更改</button></div>
+        <div class="grid grid-2">
+          <div class="card pad"><div class="lbl">📁 数据根目录</div><input class="input" id="cfgDataDir"></div>
+          <div class="card pad"><div class="lbl">🌐 允许自助注册</div>
+            <label class="check"><input type="checkbox" id="cfgRegister"> 开启后访客可在 /register 自助注册</label></div>
+        </div>
+      </section>
+
+      <!-- 系统配置 -->
+      <section class="view" id="v-config" data-admin>
+        <div class="sec-head"><h2>系统配置</h2><button class="btn btn-primary btn-sm" id="saveCfgBtn">保存更改</button></div>
+        <div class="grid grid-2">
+          <div class="card pad"><div class="lbl">🔌 FTP 控制端口</div><input class="input" id="cfgFtpPort" type="number"></div>
+          <div class="card pad"><div class="lbl">🖥 Web 管理端口</div><input class="input" id="cfgWebPort" type="number"></div>
+          <div class="card pad"><div class="lbl">📡 PASV 被动端口范围</div><input class="input" id="cfgPasv" placeholder="例如 40000-41000"></div>
+          <div class="card pad"><div class="lbl">🔒 启用 FTPS (TLS)</div>
+            <label class="check"><input type="checkbox" id="cfgFtps"> 启用加密传输</label></div>
+        </div>
+        <div class="empty" style="text-align:left;padding:10px 0 0;color:#6a7c98">注：FTP / PASV / FTPS 保存后立即热重载；Web 端口需重启进程生效。</div>
+      </section>
+
+      <!-- 系统信息 -->
+      <section class="view" id="v-system">
+        <div class="sec-head"><h2>系统信息</h2></div>
+        <div class="card pad" id="sysInfo"><div class="about-line">加载中…</div></div>
+      </section>
+
+      <!-- 关于 -->
+      <section class="view" id="v-about">
+        <div class="sec-head"><h2>关于</h2></div>
+        <div class="card pad" id="aboutInfo"><div class="about-line">加载中…</div></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="overlay" id="modal"><div class="modal glass" id="modalBody"></div></div>
+<div class="mask" id="mask"><div class="card pad" style="width:360px;text-align:center"><div class="lbl" style="justify-content:center">处理中</div><div class="pbar"><i id="pbar"></i></div><div id="pmeta" class="about-line">0%</div></div></div>
+<div class="toast" id="toast"></div>
+
+<script src="/assets/app.js"></script>
+<noscript style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;background:#070a12;font-family:sans-serif">请启用 JavaScript</noscript>
+</body>
+</html>

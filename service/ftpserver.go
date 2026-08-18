@@ -260,11 +260,11 @@ func StartFTP(cfg *config.Config, store *repository.DBStore) (*server.Server, er
 // start 依据当前配置创建并启动一个 FTP server（调用方需保证并发安全）
 func (ctl *ftpController) start() error {
 	opts := &server.ServerOpts{
-		Factory: &ftpDriverFactory{store: ctl.store, cfg: ctl.cfg},
-		Auth:    &ftpAuth{store: ctl.store},
-		Name:    "PhiloFTP",
-		Port:    ctl.cfg.FTPPort,
-		PassivePorts: passivePortRange(ctl.cfg.PASVMinPort, ctl.cfg.PASVMaxPort),
+		Factory:        &ftpDriverFactory{store: ctl.store, cfg: ctl.cfg},
+		Auth:           &ftpAuth{store: ctl.store},
+		Name:           "PhiloFTP",
+		Port:           ctl.cfg.FTPPort,
+		PassivePorts:   passivePortRange(ctl.cfg.PASVMinPort, ctl.cfg.PASVMaxPort),
 		WelcomeMessage: "Welcome to PhiloFTP",
 	}
 	if ctl.cfg.EnableFTPS && ctl.cfg.TLSCert != "" && ctl.cfg.TLSKey != "" {

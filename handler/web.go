@@ -2,8 +2,12 @@ package handler
 
 import (
 	"fmt"
+	"io"
+	"io/fs"
 	"mime"
+	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -18,8 +22,8 @@ import (
 	"philoftp/repository"
 )
 
-// StartWeb 启动 Web 管理端（Gin），返回监听地址。
-func StartWeb(cfg *config.Config, store *repository.DBStore) (string, error) {
+// StartWeb 启动 Web 管理端（Gin）。webFS 为嵌入的前端静态资源（web/ 目录），返回监听地址。
+func StartWeb(cfg *config.Config, store *repository.DBStore, webFS fs.FS) (string, error) {
 	auth := NewAuthManager(cfg, store)
 	appAuth = auth
 	r := gin.New()
@@ -32,16 +36,6 @@ func StartWeb(cfg *config.Config, store *repository.DBStore) (string, error) {
 		c.JSON(http.StatusOK, gin.H{"allow_register": cfg.AllowRegisterEnabled()})
 	})
 
-	// 公开页面
-	r.GET("/login", func(c *gin.Context) { c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(LoginHTML)) })
-	r.GET("/register", func(c *gin.Context) {
-		if !cfg.AllowRegisterEnabled() {
-			c.Redirect(http.StatusFound, "/login")
-			return
-		}
-		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(RegisterHTML))
-	})
-
 	// 受保护接口（所有已登录用户均可访问文件操作）
 	authed := r.Group("")
 	authed.Use(auth.RequireAuth())
@@ -49,7 +43,6 @@ func StartWeb(cfg *config.Config, store *repository.DBStore) (string, error) {
 	authed.GET("/api/files", filesHandler(cfg, store))
 	authed.POST("/api/mkdir", mkdirHandler(cfg, store))
 	authed.POST("/api/upload", uploadHandler(cfg, store))
-	authed.POST("/api/upload/batch", batchUploadHandler(cfg, store))
 	authed.GET("/api/download", downloadHandler(cfg, store))
 	authed.POST("/api/logout", auth.Logout)
 	authed.GET("/api/me", func(c *gin.Context) {
@@ -71,11 +64,8 @@ func StartWeb(cfg *config.Config, store *repository.DBStore) (string, error) {
 	admin.POST("/api/users", upsertUserHandler(store))
 	admin.DELETE("/api/users/:username", deleteUserHandler(store))
 
-	// 受保护页面（dashboard）
-	protected := r.Group("")
-	protected.Use(auth.RequireAuth())
-	protected.GET("/", func(c *gin.Context) { c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(DashboardHTML)) })
-	protected.GET("/dashboard", func(c *gin.Context) { c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(DashboardHTML)) })
+	// 前端静态资源与页面（登录 / 注册 / 控制台）
+	registerStatic(r, cfg, webFS, auth)
 
 	addr := fmt.Sprintf(":%d", cfg.WebPort)
 	errCh := make(chan error, 1)
@@ -86,19 +76,6 @@ func StartWeb(cfg *config.Config, store *repository.DBStore) (string, error) {
 		return addr, fmt.Errorf("Web 服务启动失败: %w", err)
 	case <-time.After(1500 * time.Millisecond):
 		return addr, nil
-	}
-}
-
-func corsMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Content-Type")
-		if c.Request.Method == http.MethodOptions {
-			c.AbortWithStatus(http.StatusNoContent)
-			return
-		}
-		c.Next()
 	}
 }
 
@@ -236,7 +213,7 @@ func downloadHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerF
 			disp = fmt.Sprintf("attachment; filename=\"%s\"", info.Name())
 		} else {
 			disp = fmt.Sprintf("attachment; filename=\"%s\"; filename*=UTF-8''%s",
-				strings.ReplaceAll(info.Name(), "\"", ""), urlEncodeUTF8(info.Name()))
+				strings.ReplaceAll(info.Name(), "\"", ""), url.QueryEscape(info.Name()))
 		}
 		c.Header("Content-Type", ctype)
 		c.Header("Content-Disposition", disp)
@@ -269,7 +246,7 @@ func downloadHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerF
 				c.Header("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, info.Size()))
 				c.Header("Content-Length", strconv.FormatInt(end-start+1, 10))
 				c.Status(http.StatusPartialContent)
-				_, _ = copyRange(c.Writer, f, end-start+1)
+				_, _ = io.CopyN(c.Writer, f, end-start+1)
 				return
 			}
 		}
@@ -304,9 +281,9 @@ func filesHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFunc
 				continue
 			}
 			items = append(items, map[string]interface{}{
-				"name":   e.Name(),
-				"is_dir": e.IsDir(),
-				"size":   fi.Size(),
+				"name":     e.Name(),
+				"is_dir":   e.IsDir(),
+				"size":     fi.Size(),
 				"mod_time": fi.ModTime().Format("2006-01-02 15:04"),
 			})
 		}
@@ -320,7 +297,7 @@ func filesHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFunc
 	}
 }
 
-// uploadHandler 单文件上传
+// uploadHandler 文件上传（同时兼容单文件字段 file 与多文件字段 files）
 func uploadHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user, ok := currentUserOf(c)
@@ -338,44 +315,16 @@ func uploadHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFun
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		file, err := c.FormFile("file")
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "未收到文件"})
-			return
+		// 多文件字段 files 优先；为空时回退到单文件字段 file
+		var files []*multipart.FileHeader
+		if form, ferr := c.MultipartForm(); ferr == nil {
+			files = form.File["files"]
 		}
-		dst := filepath.Join(full, filepath.Base(file.Filename))
-		if err := c.SaveUploadedFile(file, dst); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "保存失败"})
-			return
+		if len(files) == 0 {
+			if f, ferr := c.FormFile("file"); ferr == nil {
+				files = []*multipart.FileHeader{f}
+			}
 		}
-		c.JSON(http.StatusOK, gin.H{"ok": true})
-	}
-}
-
-// batchUploadHandler 多文件上传
-func batchUploadHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		user, ok := currentUserOf(c)
-		if !ok {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "未登录"})
-			return
-		}
-		if !user.CanWrite() {
-			c.JSON(http.StatusForbidden, gin.H{"error": "账户禁用，无法上传"})
-			return
-		}
-		path := c.PostForm("path")
-		full, err := safeJoin(cfg, user, path)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		form, err := c.MultipartForm()
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "表单错误"})
-			return
-		}
-		files := form.File["files"]
 		if len(files) == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "未收到文件"})
 			return

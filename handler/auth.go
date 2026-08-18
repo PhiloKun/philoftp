@@ -116,16 +116,16 @@ func (a *AuthManager) CurrentUserOf(c *gin.Context) (model.User, bool) {
 	return model.User{}, false
 }
 
-// RequireRole 是 Gin 中间件，校验当前用户是否具备指定角色。
-// 非管理员访问管理员接口时返回 403，严格分级。
+// RequireRole 是 Gin 中间件，在 RequireAuth 鉴权基础上校验当前用户是否具备指定角色。
+// 未登录返回 401，角色不符返回 403，保证权限严格分级。
 func (a *AuthManager) RequireRole(role string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		user, ok := a.currentUser(c)
-		if !ok {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "未登录或会话已过期"})
+		a.RequireAuth()(c)
+		if c.IsAborted() {
 			return
 		}
-		if user.Role != role {
+		u, _ := c.MustGet("user").(model.User)
+		if u.Role != role {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "权限不足：需要 " + role + " 角色"})
 			return
 		}

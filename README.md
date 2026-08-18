@@ -63,7 +63,7 @@ make build        # 编译到 dist/macos/philoftp
 - **基础设置**：在 Web 端查看并修改配置（FTP/Web 端口、PASV 范围、数据目录、FTPS 开关与证书、自助注册开关），保存即写入 `config.json` 并**即时生效**：FTP 服务（端口/PASV/FTPS）自动热重载、数据目录与注册开关实时读取；仅 Web 管理端口需重启服务进程后切换监听
 - **系统配置**：运行时信息（Go 版本、协程数、运行时长、数据/配置路径等）与关于
 
-> 界面采用零外部依赖设计（纯内联 CSS 的「深空控制台风」：玻璃拟态 + 青色辉光 + 等宽技术字体 + 入场动画），离线可用，内网无外网也能完美运行。
+> 界面采用零外部依赖设计（「深空控制台风」：玻璃拟态 + 青色辉光 + 等宽技术字体 + 入场动画），样式与脚本位于 `web/assets/`，离线可用，内网无外网也能完美运行。
 
 ## 配置文件 `config.json`
 
@@ -152,6 +152,7 @@ GOOS=linux GOARCH=amd64 go build -o dist/linux/philoftp-linux-amd64 .
 ```
 philoftp/
 ├── main.go            # 程序入口、命令行参数解析、组装各层并启动
+├── webstatic.go       # //go:embed web —— 将前端静态资源嵌入单二进制
 ├── go.mod / go.sum
 ├── model/             # 领域模型
 │   └── user.go          # User 模型 + ResolveHome 路径辅助
@@ -161,9 +162,17 @@ philoftp/
 │   └── dbstore.go       # DBStore：基于 SQLite 的用户存储（bcrypt 哈希 + 迁移 + 最后管理员保护）
 ├── service/           # 业务/服务层
 │   └── ftpserver.go     # FTP 服务器启动与文件系统驱动（goftp/server）
-├── handler/           # 接入层（HTTP / 页面）
+├── handler/           # 接入层（HTTP API + 静态资源托管，不含界面代码）
 │   ├── web.go           # Web 管理端 API（Gin）
-│   └── web_ui.go        # 内置 Web 管理页面 HTML
+│   └── web_ui.go        # 前端静态资源托管（页面路由 + /assets 挂载）
+├── web/               # 【前端】纯静态资源，与后端 Go 代码完全分离
+│   ├── index.html       # 登录页
+│   ├── register.html    # 注册页
+│   ├── app.html         # 控制台单页（SPA）
+│   └── assets/
+│       ├── style.css      # 共享样式（深空控制台风：玻璃拟态 + 青色辉光）
+│       ├── auth.js        # 登录 / 注册逻辑
+│       └── app.js         # 控制台交互逻辑
 ├── configs/           # 默认配置模板（运行时从此处读取）
 │   ├── config.json       # 服务器配置（端口、PASV 范围、FTPS 等）
 │   └── users.db          # SQLite 用户数据库（默认 admin/admin123，密码 bcrypt 哈希）
@@ -172,11 +181,14 @@ philoftp/
 │   ├── macos/           # macOS 二进制 / zip / PhiloFTP.app
 │   ├── windows/         # Windows exe / zip
 │   └── linux/           # Linux 二进制 / zip
-├── docs/              # 文档
 ├── Makefile           # 构建 / 运行 / 打包脚本
 └── .gitignore
 ```
 
+> **前后端职责边界**
+> - **后端（Go）**：专注业务逻辑与接口。`handler/` 仅提供 RESTful API（`/api/*`）与静态资源托管，**不内联任何 HTML/JS/CSS**；前端文件全部位于 `web/`，经 `//go:embed` 嵌入后由 `handler/web_ui.go` 托管，保持单二进制分发。
+> - **前端（静态资源）**：专注界面与交互，纯 HTML/CSS/JS，不依赖后端编译，可独立开发/调试（如本地用任意静态服务器打开 `web/`）。
+>
 > 源码按职责拆分为内部包（model / config / repository / service / handler），
 > 由根目录 `main.go`（package main）负责组装与启动。`go build .` 即可编译单二进制。
 
