@@ -101,6 +101,18 @@
               <div class="lbl">📦 占用最大的文件 <span class="ov-hint">Top 5</span></div>
               <div id="ovTopFiles" class="ov-top"></div>
             </div>
+            <div class="card pad ov-card" draggable="true" data-ov-card-id="access-qr">
+              <div class="lbl">📡 局域网访问</div>
+              <div class="ov-access">
+                <div class="ov-access-qr" id="ovAccessQR"><span style="font-size:12px;color:var(--muted)">加载二维码…</span></div>
+                <div class="ov-access-info">
+                  <div class="ov-access-row"><span>IP</span><code class="mono" id="ovAccessIP">—</code></div>
+                  <div class="ov-access-row"><span>主机名</span><code class="mono" id="ovAccessHost">—</code></div>
+                  <div class="ov-access-row"><span>端口</span><code class="mono" id="ovAccessPort">—</code></div>
+                </div>
+              </div>
+              <div class="ov-access-tip">其他设备扫码或输入地址即可访问本管理端。</div>
+            </div>
           </div>
         </div>
       </section>
@@ -143,10 +155,16 @@
           <div class="cfg-group-title">📂 存储与访问</div>
           <div class="grid grid-2">
             <div class="card pad"><div class="lbl">数据根目录</div><input class="input" id="cfgDataDir" placeholder="data"></div>
-            <div class="card pad"><div class="lbl">🔒 启用 FTPS (TLS)</div>
-              <label class="check"><input type="checkbox" id="cfgFtps"> 启用加密传输</label></div>
             <div class="card pad"><div class="lbl">🌐 允许自助注册</div>
               <label class="check"><input type="checkbox" id="cfgRegister"> 开启后访客可在 /register 自助注册</label></div>
+            <div class="card pad cfg-ftps"><div class="lbl">🔒 启用 FTPS (TLS)</div>
+              <label class="check"><input type="checkbox" id="cfgFtps"> 启用加密传输</label>
+              <div class="cfg-ftps-fields">
+                <div style="margin-top:12px"><div class="cfg-field-lbl">证书文件 (tls_cert)</div><input class="input" id="cfgTLSCert" placeholder="server.crt 或 /path/server.crt"></div>
+                <div style="margin-top:10px"><div class="cfg-field-lbl">私钥文件 (tls_key)</div><input class="input" id="cfgTLSKey" placeholder="server.key 或 /path/server.key"></div>
+                <div class="cfg-field-tip">启用 FTPS 需同时提供证书与私钥文件。可参考 README「启用 FTPS」章节生成自签名证书，填好路径后勾选保存即可生效（立即热重载）。</div>
+              </div>
+            </div>
           </div>
         </div>
 

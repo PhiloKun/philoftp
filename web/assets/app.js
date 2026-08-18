@@ -250,6 +250,27 @@
     // 卡片设置按钮
     var setBtn = el('ovSettingsBtn');
     if(setBtn) setBtn.onclick = openOverviewSettings;
+
+    // 加载概览页"局域网访问"卡片的二维码与访问信息
+    loadOverviewAccess();
+  }
+
+  // 加载概览页局域网访问卡片（二维码 + IP/主机名/端口）
+  function loadOverviewAccess(){
+    var qrEl = el('ovAccessQR');
+    if(!qrEl) return; // 卡片被隐藏或不存在时跳过
+    api('/api/access').then(function(x){
+      if(!x.ok) return;
+      var d = x.d;
+      if(el('ovAccessIP')) el('ovAccessIP').textContent = d.ip || '—';
+      if(el('ovAccessHost')) el('ovAccessHost').textContent = d.hostname || 'philoftp.local';
+      if(el('ovAccessPort')) el('ovAccessPort').textContent = d.web_port || '—';
+    });
+    var img = new Image();
+    img.src = '/api/access/qr';
+    img.alt = '访问二维码';
+    img.onload = function(){ qrEl.innerHTML = ''; qrEl.appendChild(img); };
+    img.onerror = function(){ qrEl.innerHTML = '<span style="font-size:12px;color:var(--muted)">二维码加载失败</span>'; };
   }
 
   // ===== 卡片配置模型（每张卡的 draggable / enabled / slot）=====
@@ -1017,6 +1038,8 @@
       el('cfgFtps').checked = !!c.enable_ftps;
       el('cfgDataDir').value = c.data_dir || '';
       el('cfgRegister').checked = !!c.allow_register;
+      el('cfgTLSCert').value = c.tls_cert || '';
+      el('cfgTLSKey').value = c.tls_key || '';
     });
   }
   function saveSettings(){
@@ -1024,6 +1047,8 @@
       ftp_port: parseInt(el('cfgFtpPort').value,10),
       web_port: parseInt(el('cfgWebPort').value,10),
       enable_ftps: el('cfgFtps').checked,
+      tls_cert: el('cfgTLSCert').value.trim(),
+      tls_key: el('cfgTLSKey').value.trim(),
       data_dir: el('cfgDataDir').value.trim(),
       allow_register: el('cfgRegister').checked
     };

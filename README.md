@@ -153,12 +153,20 @@ ftp://<服务器IP>:2121
 
 ## 启用 FTPS（加密）
 
-1. 准备证书 `server.crt` 与私钥 `server.key`
-2. 修改 `config.json`：
-   ```json
-   { "enable_ftps": true, "tls_cert": "server.crt", "tls_key": "server.key" }
-   ```
-3. 在 Web 端「系统设置」开启 FTPS 并保存即可热重载生效（或在 `config.json` 修改后重启服务），客户端使用 `FTPS（显式）` 模式连接
+**操作流程（推荐，Web 端即可完成）：**
+
+1. **准备证书** `server.crt` 与私钥 `server.key`（可用自签名证书，如 `openssl req -x509 -newkey rsa:2048 -keyout server.key -out server.crt -days 365 -nodes`）
+2. 将证书/私钥文件放到服务器可读取的路径（如程序目录或 `configs/` 下）
+3. 登录 Web 管理端 → 「系统设置」→ **勾选「启用 FTPS (TLS)」**，并填写：
+   - **证书文件 (tls_cert)**：如 `configs/server.crt` 或绝对路径
+   - **私钥文件 (tls_key)**：如 `configs/server.key` 或绝对路径
+4. 点击「保存更改」→ **立即热重载生效**（无需重启进程）
+
+> 也可以直接修改 `config.json`：
+> ```json
+> { "enable_ftps": true, "tls_cert": "configs/server.crt", "tls_key": "configs/server.key" }
+> ```
+> 客户端使用 **FTPS（显式 Explicit）** 模式连接 FTP 端口（默认 2121）。**注意**：仅勾选启用 FTPS 但证书路径为空时，服务端不会真正启用加密——必须同时提供有效的证书与私钥文件。
 
 ## 构建各平台二进制
 
