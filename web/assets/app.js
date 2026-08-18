@@ -252,7 +252,8 @@
       resetBtn.onclick = function(){
         localStorage.removeItem('philoftp-overview-layout');
         toast('已恢复默认布局', true);
-        applyOverviewLayout(); // 无保存布局时自然恢复默认
+        // 重新拉取概览数据并重渲染（恢复 KPI 与主体卡片到默认容器与顺序）
+        loadOverview();
       };
     }
 
@@ -1152,20 +1153,14 @@
       } else {
         el('cfgPasv').value = '';
       }
-      el('cfgFtps').checked = !!c.enable_ftps;
       el('cfgDataDir').value = c.data_dir || '';
       el('cfgRegister').checked = !!c.allow_register;
-      el('cfgTLSCert').value = c.tls_cert || '';
-      el('cfgTLSKey').value = c.tls_key || '';
     });
   }
   function saveSettings(){
     var body = {
       ftp_port: parseInt(el('cfgFtpPort').value,10),
       web_port: parseInt(el('cfgWebPort').value,10),
-      enable_ftps: el('cfgFtps').checked,
-      tls_cert: el('cfgTLSCert').value.trim(),
-      tls_key: el('cfgTLSKey').value.trim(),
       data_dir: el('cfgDataDir').value.trim(),
       allow_register: el('cfgRegister').checked
     };
