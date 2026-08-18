@@ -129,13 +129,46 @@ func statusHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFun
 	}
 }
 
-// aboutHandler 返回"关于"页面所需信息（版本/Go 版本/Git 提交）。
+// aboutHandler 返回"关于"页面所需信息（版本/Go 版本/Git 提交/作者/版本历史/功能特性）。
 func aboutHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"version":    version,
 			"go_version": runtime.Version(),
 			"git_commit": gitCommit,
+			"author":     "philokun",
+			"repo_gitee": "https://gitee.com/PhiloKun/philoftp",
+			"repo_github": "https://github.com/PhiloKun/philoftp",
+			"history": []gin.H{
+				{"ver": "v1.0.0", "date": "2026-08-18", "title": "稳定版：批量删除 + 回收站", "desc": "文件列表勾选/全选/反选；删除移入回收站可一键恢复或清空；回收站目录从文件列表中隐藏；数据目录路径完整显示。"},
+				{"ver": "v0.9.0", "date": "2026-08-18", "title": "FTPS 配置入口移除", "desc": "简化系统设置，聚焦核心 FTP/管理功能。"},
+				{"ver": "v0.8.0", "date": "2026-08-18", "title": "上传冲突与移动端", "desc": "上传同名文件支持覆盖/自动重命名/取消；概览页局域网访问卡含二维码+IP+mDNS；移动端响应式优化。"},
+				{"ver": "v0.7.0", "date": "2026-08-18", "title": "mDNS 与局域网访问", "desc": "服务自动注册 philoftp.local；登录页与概览页展示访问地址与二维码，内网设备无需记 IP。"},
+				{"ver": "v0.6.0", "date": "2026-08-18", "title": "概览卡片自定义", "desc": "概览页卡片支持拖拽排序与自定义添加；卡片设置统一管理可拖动/显示开关；环境变量配置端口。"},
+				{"ver": "v0.5.0", "date": "2026-08-18", "title": "Windows 托盘 GUI 与安装包", "desc": "引入 systray 常驻后台；日志写入文件；NSIS 安装包；跨平台磁盘容量实现支持 Windows 编译。"},
+				{"ver": "v0.4.0", "date": "2026-08-18", "title": "概览与权限", "desc": "概览页仪表盘快照（KPI+服务器/存储/活动）；RBAC 两级权限；自助注册开关；自定义输入弹窗。"},
+				{"ver": "v0.3.0", "date": "2026-08-17", "title": "文件预览与导航", "desc": "在线预览常见文件（图片/音视频/文本/代码/PDF）；面包屑导航；自定义确认弹窗。"},
+				{"ver": "v0.2.0", "date": "2026-08-16", "title": "深空控制台前端", "desc": "玻璃拟态 UI + 青色辉光 + JetBrains Mono 等宽字体；零外部依赖离线可用。"},
+				{"ver": "v0.1.0", "date": "2026-08-15", "title": "初版", "desc": "内核 FTP 服务（goftp/server）+ Gin Web 管理端；SQLite 用户库（纯 Go 驱动，无 cgo）；配置热重载。"},
+			},
+			"features": []gin.H{
+				{"icon": "📁", "name": "FTP 文件服务", "desc": "goftp/server 内核，支持 PASV 端口范围，适配内网/NAT 环境。"},
+				{"icon": "🌐", "name": "Web 管理端", "desc": "Gin 提供 REST API，浏览器管理用户、文件、系统设置。"},
+				{"icon": "👥", "name": "用户与权限", "desc": "SQLite + bcrypt 存储，admin/user 两级 RBAC；可关闭自助注册。"},
+				{"icon": "📂", "name": "文件管理", "desc": "按用户隔离 home；上传/批量上传/新建目录/下载/在线预览；面包屑导航。"},
+				{"icon": "🗑", "name": "回收站", "desc": "删除移入回收站可恢复；批量删除 + 全选/反选；一键撤销。"},
+				{"icon": "🎨", "name": "深空控制台 UI", "desc": "玻璃拟态 + 青色辉光 + JetBrains Mono 等宽字体；零外部依赖离线可用。"},
+				{"icon": "🖥", "name": "概览页仪表盘", "desc": "KPI + 服务器状态 + 用户分布 + 存储环形图 + 活动会话 + Top 文件 + 局域网访问卡。"},
+				{"icon": "📦", "name": "单二进制分发", "desc": "前端 //go:embed web 嵌入，单文件即可运行。"},
+				{"icon": "📱", "name": "移动端适配", "desc": "响应式布局；导航栏自动转为顶部横向；触控友好尺寸。"},
+				{"icon": "📡", "name": "mDNS 局域网访问", "desc": "注册 philoftp.local；登录页与概览页展示 IP/主机名/二维码，扫码直达。"},
+				{"icon": "🖥", "name": "Windows 系统托盘", "desc": "systray 常驻后台；托盘菜单查看状态/启停/打开Web/日志/退出；无闪退。"},
+				{"icon": "📦", "name": "Windows 安装包", "desc": "NSIS 一键安装到用户目录；自动放行防火墙；完整卸载支持。"},
+				{"icon": "📋", "name": "日志文件", "desc": "运行日志写入 ~/.philoftp/logs/philoftp.log，便于排查与追溯。"},
+				{"icon": "⚙", "name": "热重载配置", "desc": "FTP 端口/PASV 即时生效；Web 端口修改需重启。"},
+				{"icon": "🔧", "name": "命令行与环境变量", "desc": "支持 -web-port/-ftp-port 与 PHILOFTP_* 环境变量配置。"},
+				{"icon": "🛡", "name": "路径越权防护", "desc": "safeJoin 防穿越；删除防护 home 根与回收站目录。"},
+			},
 		})
 	}
 }

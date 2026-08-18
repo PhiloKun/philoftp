@@ -1187,11 +1187,51 @@
   function loadAbout(){
     api('/api/about').then(function(x){
       var d = x.ok ? x.d : {};
-      el('aboutInfo').innerHTML =
-        '<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px"><div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,var(--cyan),var(--cyan2));color:#04121a;font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center">⬡</div><div><b style="font-size:18px">PhiloFTP</b><br><span style="color:var(--haze);font-size:13px">内网 FTP 控制中枢</span></div></div>'+
-        '版本：'+esc(d.version||'-')+' · Go '+esc(d.go_version||'-')+(d.git_commit?' · '+esc(d.git_commit):'')+'<br><br>'+
-        '基于 Go + Gin 构建，前端为纯静态资源（与后端完全分离）。';
+      el('aboutInfo').innerHTML = renderAbout(d);
     });
+  }
+  // 渲染关于页面：作者、版本、功能、版本历史
+  function renderAbout(d){
+    var head =
+      '<div class="about-hero">'+
+        '<div class="about-logo">⬡</div>'+
+        '<div class="about-meta">'+
+          '<div class="about-title">PhiloFTP</div>'+
+          '<div class="about-sub">内网 FTP 控制中枢 · 由 <b class="about-author">'+esc(d.author||'philokun')+'</b> 独立开发与维护</div>'+
+          '<div class="about-tags">'+
+            '<span class="about-tag">当前版本：'+esc(d.version||'dev')+'</span>'+
+            '<span class="about-tag">Go '+esc(d.go_version||'-')+'</span>'+
+            (d.git_commit?'<span class="about-tag">'+esc(d.git_commit)+'</span>':'')+
+          '</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="about-repos">'+
+        '<a href="'+esc(d.repo_gitee||'#')+'" target="_blank" rel="noopener" class="about-repo">📦 Gitee 仓库</a>'+
+        '<a href="'+esc(d.repo_github||'#')+'" target="_blank" rel="noopener" class="about-repo">📦 GitHub 仓库</a>'+
+      '</div>';
+
+    var features = '<div class="about-section"><h3 class="about-section-title">功能特性</h3>'+
+      '<div class="about-features">'+
+      (d.features||[]).map(function(f){
+        return '<div class="about-feature"><span class="about-feature-ico">'+esc(f.icon||'•')+'</span><div><b>'+esc(f.name)+'</b><span>'+esc(f.desc)+'</span></div></div>';
+      }).join('')+
+      '</div></div>';
+
+    var history = '<div class="about-section"><h3 class="about-section-title">版本历史</h3>'+
+      '<ol class="about-history">'+
+      (d.history||[]).map(function(h){
+        return '<li class="about-hitem">'+
+          '<div class="about-hhead">'+
+            '<span class="about-hver">'+esc(h.ver)+'</span>'+
+            '<span class="about-hdate">'+esc(h.date)+'</span>'+
+          '</div>'+
+          '<b class="about-htitle">'+esc(h.title)+'</b>'+
+          '<p class="about-hdesc">'+esc(h.desc)+'</p>'+
+        '</li>';
+      }).join('')+
+      '</ol></div>';
+
+    return head + features + history;
   }
 
   function closeModal(){ el('modal').classList.remove('show'); }
