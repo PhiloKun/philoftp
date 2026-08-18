@@ -1217,21 +1217,7 @@
       }).join('')+
       '</div></div>';
 
-    var history = '<div class="about-section"><h3 class="about-section-title">版本历史</h3>'+
-      '<ol class="about-history">'+
-      (d.history||[]).map(function(h){
-        return '<li class="about-hitem">'+
-          '<div class="about-hhead">'+
-            '<span class="about-hver">'+esc(h.ver)+'</span>'+
-            '<span class="about-hdate">'+esc(h.date)+'</span>'+
-          '</div>'+
-          '<b class="about-htitle">'+esc(h.title)+'</b>'+
-          '<p class="about-hdesc">'+esc(h.desc)+'</p>'+
-        '</li>';
-      }).join('')+
-      '</ol></div>';
-
-    return head + features + history;
+    return head + features;
   }
 
   function closeModal(){ el('modal').classList.remove('show'); }
