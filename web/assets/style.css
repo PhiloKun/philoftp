@@ -169,6 +169,10 @@ td .mono,td.mono{font-size:13px;color:var(--haze);}
 .overlay{position:fixed;inset:0;background:rgba(3,6,12,.66);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
   display:none;align-items:center;justify-content:center;z-index:30;padding:16px;}
 .overlay.show{display:flex;animation:fade .2s ease;}
+/* 弹窗层级：删除确认（危险）始终最上层，确保不被卡片设置等遮挡 */
+#ovSettings.show{z-index:30;}
+#ovAddCardModal.show{z-index:31;}
+#confirm.show{z-index:40;}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 .modal{background:var(--panel);border:1px solid rgba(34,211,238,.25);border-radius:16px;padding:26px;width:460px;max-width:92vw;
   box-shadow:0 30px 80px -20px rgba(0,0,0,.8),0 0 0 1px rgba(34,211,238,.1);max-height:90vh;overflow-y:auto;}
@@ -276,9 +280,9 @@ td .mono,td.mono{font-size:13px;color:var(--haze);}
 .ov-kv-row{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:9px 0;border-bottom:1px solid rgba(30,42,64,.5);font-size:13px;}
 .ov-kv-row:last-child{border-bottom:none;}
 .ov-kv-k{color:var(--haze);flex:0 0 auto;}
-.ov-kv-v{color:var(--txt);text-align:right;overflow-wrap:anywhere;word-break:break-all;line-height:1.5;}
+.ov-kv-v{color:var(--txt);text-align:right;overflow-wrap:anywhere;word-break:break-all;line-height:1.5;min-width:0;flex:1 1 auto;}
 /* 路径类内容用等宽字体，保持可读且允许换行 */
-.ov-kv-v.path{font-family:var(--font-mono);font-size:12px;color:var(--cyan2);text-align:right;line-height:1.55;letter-spacing:.01em;}
+.ov-kv-v.path{font-family:var(--font-mono);font-size:12px;color:var(--cyan2);text-align:right;line-height:1.55;letter-spacing:.01em;max-width:100%;}
 .tone-cyan{color:var(--cyan)!important;}.tone-cyan2{color:var(--cyan2)!important;}.tone-ok{color:var(--ok)!important;}.tone-warn{color:var(--warn)!important;}.tone-err{color:var(--err)!important;}.tone-muted{color:var(--muted)!important;}
 
 /* 活跃会话 */
