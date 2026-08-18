@@ -255,7 +255,7 @@
     loadOverviewAccess();
   }
 
-  // 加载概览页局域网访问卡片（二维码 + IP/主机名/端口）
+  // 加载概览页局域网访问卡片（二维码 + IP/主机名/端口 + 访问链接）
   function loadOverviewAccess(){
     var qrEl = el('ovAccessQR');
     if(!qrEl) return; // 卡片被隐藏或不存在时跳过
@@ -265,6 +265,11 @@
       if(el('ovAccessIP')) el('ovAccessIP').textContent = d.ip || '—';
       if(el('ovAccessHost')) el('ovAccessHost').textContent = d.hostname || 'philoftp.local';
       if(el('ovAccessPort')) el('ovAccessPort').textContent = d.web_port || '—';
+      var linkEl = el('ovAccessLink');
+      if(linkEl && d.ip && d.web_port){
+        linkEl.href = 'http://' + d.ip + ':' + d.web_port;
+        linkEl.textContent = '🔗 内网访问 ' + d.ip + ':' + d.web_port;
+      }
     });
     var img = new Image();
     img.src = '/api/access/qr';

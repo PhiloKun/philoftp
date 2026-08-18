@@ -90,6 +90,10 @@ body{background:var(--bg);color:var(--txt);font-family:var(--font-body);min-heig
 .auth-link{text-align:center;margin-top:16px;font-size:13px;color:var(--muted);}
 .auth-link a{color:var(--cyan);text-decoration:none;}
 .auth-link a:hover{text-decoration:underline;}
+.auth-hint{margin-top:16px;text-align:center;font-size:12px;line-height:1.8;color:var(--muted);
+  padding:10px 12px;background:rgba(34,211,238,.05);border:1px dashed rgba(34,211,238,.18);border-radius:8px;}
+.auth-hint b{color:var(--cyan);font-family:var(--font-mono);font-weight:600;}
+.auth-hint-key{color:var(--haze);}
 
 .strength{display:flex;gap:6px;margin-top:8px;}
 .strength .bar{flex:1;height:5px;border-radius:3px;background:var(--line);transition:background .25s;}
@@ -417,6 +421,10 @@ td .mono,td.mono{font-size:13px;color:var(--haze);}
 .ov-access-row code{font-family:var(--font-mono);font-size:12px;color:var(--cyan2);background:rgba(34,211,238,.06);
   padding:4px 8px;border-radius:6px;border:1px solid rgba(34,211,238,.12);overflow-wrap:anywhere;word-break:break-all;}
 .ov-access-tip{font-size:11px;color:var(--muted);line-height:1.6;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);}
+.ov-access-link{display:block;margin-top:12px;padding:10px 12px;text-align:center;border-radius:8px;text-decoration:none;
+  font-size:13px;color:var(--cyan);background:rgba(34,211,238,.07);border:1px solid rgba(34,211,238,.22);transition:.18s;}
+.ov-access-link:hover{background:rgba(34,211,238,.14);color:var(--cyan);}
+.ov-access-link:active{transform:scale(.98);}
 
 /* 上传同名冲突弹窗 */
 .uc-list{margin:6px 0 18px;padding:0;list-style:none;max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
@@ -496,6 +504,18 @@ td .mono,td.mono{font-size:13px;color:var(--haze);}
   .field label{font-size:12px;}
   .input{font-size:16px;padding:12px 14px;min-height:44px;}
   .hint{font-size:12px;min-height:14px;}
+
+  /* 登录页访问卡片：窄屏堆叠居中 */
+  .access-card{padding:20px 18px;}
+  .access-body{flex-direction:column;align-items:center;}
+  .access-info{width:100%;}
+  .access-qr{width:150px;height:150px;}
+
+  /* 概览页局域网访问卡片：窄屏二维码居中、信息占满 */
+  .ov-access{flex-direction:column;align-items:center;}
+  .ov-access-qr{width:150px;height:150px;}
+  .ov-access-info{width:100%;}
+  .ov-access-link{min-height:44px;display:flex;align-items:center;justify-content:center;}
 }
 
 /* 超小屏进一步收紧 */
@@ -503,6 +523,9 @@ td .mono,td.mono{font-size:13px;color:var(--haze);}
   .content{padding:12px;}
   .card.pad{padding:14px;}
   .brand h1{font-size:18px;}
+  .access-qr,.ov-access-qr{width:120px;height:120px;}
+  .auth-card,.access-card{padding:20px 16px;}
+  .ov-kpi-big{font-size:26px;}
 }
 
 /* 尊重减少动效偏好（可访问性） */
