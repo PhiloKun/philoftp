@@ -23,7 +23,18 @@
    ```
 3. 打开浏览器访问 `http://<本机IP>:8080` 进入管理端
 
-### 方式二：从源码运行（需 Go 1.26+）
+### 方式二（Windows）：安装包（推荐）
+
+Windows 用户可直接使用 `dist/windows/PhiloFTP-Setup.exe` 一键安装：
+
+- **标准 Windows 安装流程**：选择安装目录 → 创建桌面/开始菜单快捷方式 → 完成
+- 安装时自动**放行 Windows 防火墙**（FTP 控制端口 2121 + Web 管理端口 9090）
+- 安装完成后勾选「立即启动」即可运行，浏览器访问 `http://本机IP:9090`
+- 通过「开始菜单 → 卸载 PhiloFTP」或「设置 → 应用」可完整卸载（含防火墙规则、注册表、数据目录）
+
+> 兼容 Windows 10 / 11（64 位）。
+
+### 方式三：从源码运行（需 Go 1.26+）
 
 ```bash
 git clone <repo> && cd philoftp
@@ -144,6 +155,13 @@ GOOS=windows GOARCH=amd64 go build -o dist/windows/philoftp-windows-amd64.exe .
 
 # Linux
 GOOS=linux GOARCH=amd64 go build -o dist/linux/philoftp-linux-amd64 .
+```
+
+或使用 Makefile 快速构建 Windows 安装包（需先 `brew install nsis`）：
+
+```bash
+make dist-windows        # 仅构建 Windows 二进制
+make installer-windows   # 构建二进制并生成 PhiloFTP-Setup.exe 安装包
 ```
 
 ## 项目结构

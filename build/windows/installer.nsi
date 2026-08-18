@@ -1,0 +1,116 @@
+; PhiloFTP Windows 安装程序
+; 使用 NSIS + Modern UI 2，支持标准安装流程（选目录/快捷方式/卸载）
+
+Unicode True
+RequestExecutionLevel admin
+SetCompressor /SOLID lzma
+
+!include "MUI2.nsh"
+!include "FileFunc.nsh"
+
+; ---------- 常量 ----------
+!define APP_NAME "PhiloFTP"
+!define APP_VERSION "1.0.0"
+!define APP_PUBLISHER "PhiloKun"
+!define APP_WEB "https://gitee.com/PhiloKun/philoftp"
+!define REG_UNINSTALL "Software\Microsoft\Windows\CurrentVersion\Uninstall\PhiloFTP"
+
+Name "${APP_NAME}"
+OutFile "PhiloFTP-Setup.exe"
+InstallDir "$PROGRAMFILES64\PhiloFTP"
+InstallDirRegKey HKLM "${REG_UNINSTALL}" "InstallLocation"
+VIProductVersion "1.0.0.0"
+VIAddVersionKey "ProductName" "PhiloFTP 内网 FTP 服务器"
+VIAddVersionKey "ProductVersion" "${APP_VERSION}"
+VIAddVersionKey "FileDescription" "PhiloFTP 内网 FTP 服务器安装程序"
+VIAddVersionKey "CompanyName" "${APP_PUBLISHER}"
+VIAddVersionKey "LegalCopyright" "© ${APP_PUBLISHER}"
+VIAddVersionKey "FileVersion" "${APP_VERSION}"
+
+; ---------- Modern UI ----------
+!define MUI_ABORTWARNING
+!define MUI_ICON "philoftp.ico"
+!define MUI_UNICON "philoftp.ico"
+!define MUI_WELCOMEPAGE_TITLE "欢迎安装 PhiloFTP 内网 FTP 服务器"
+!define MUI_WELCOMEPAGE_TEXT "本向导将引导您完成 PhiloFTP 的安装。$\r$\n$\r$\nPhiloFTP 是一个轻量的内网 FTP 服务器，内置 Web 管理端。$\r$\n$\r$\n安装完成后可通过 Web 管理页（http://本机:9090）进行配置。"
+
+; 页面
+!insertmacro MUI_PAGE_WELCOME
+!insertmacro MUI_PAGE_LICENSE "LICENSE.txt"
+!insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_INSTFILES
+!define MUI_FINISHPAGE_RUN "$INSTDIR\philoftp.exe"
+!define MUI_FINISHPAGE_RUN_TEXT "立即启动 PhiloFTP"
+!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README.txt"
+!insertmacro MUI_PAGE_FINISH
+
+!insertmacro MUI_UNPAGE_CONFIRM
+!insertmacro MUI_UNPAGE_INSTFILES
+
+!insertmacro MUI_LANGUAGE "SimpChinese"
+!insertmacro MUI_LANGUAGE "English"
+
+; ---------- 安装段 ----------
+Section "PhiloFTP" SecMain
+  SetOutPath "$INSTDIR"
+  ; 主程序（重命名为 philoftp.exe）
+  File "/oname=philoftp.exe" "philoftp-windows-amd64.exe"
+  ; 图标（供快捷方式用）
+  File "philoftp.ico"
+  ; 说明文档
+  File "README.txt"
+
+  ; 写入卸载信息到注册表
+  WriteRegStr HKLM "${REG_UNINSTALL}" "DisplayName" "${APP_NAME}"
+  WriteRegStr HKLM "${REG_UNINSTALL}" "DisplayVersion" "${APP_VERSION}"
+  WriteRegStr HKLM "${REG_UNINSTALL}" "DisplayIcon" "$INSTDIR\philoftp.ico"
+  WriteRegStr HKLM "${REG_UNINSTALL}" "Publisher" "${APP_PUBLISHER}"
+  WriteRegStr HKLM "${REG_UNINSTALL}" "InstallLocation" "$INSTDIR"
+  WriteRegStr HKLM "${REG_UNINSTALL}" "UninstallString" "$INSTDIR\Uninstall.exe"
+  WriteRegStr HKLM "${REG_UNINSTALL}" "QuietUninstallString" "$INSTDIR\Uninstall.exe /S"
+  WriteRegStr HKLM "${REG_UNINSTALL}" "URLInfoAbout" "${APP_WEB}"
+  WriteRegDWORD HKLM "${REG_UNINSTALL}" "NoModify" 1
+  WriteRegDWORD HKLM "${REG_UNINSTALL}" "NoRepair" 1
+  WriteRegDWORD HKLM "${REG_UNINSTALL}" "EstimatedSize" 51200
+  WriteUninstaller "$INSTDIR\Uninstall.exe"
+
+  ; 桌面快捷方式（可选，MUI 无独立页，直接创建）
+  CreateShortCut "$DESKTOP\PhiloFTP.lnk" "$INSTDIR\philoftp.exe" "" "$INSTDIR\philoftp.ico"
+  ; 开始菜单快捷方式
+  CreateDirectory "$SMPROGRAMS\PhiloFTP"
+  CreateShortCut "$SMPROGRAMS\PhiloFTP\PhiloFTP.lnk" "$INSTDIR\philoftp.exe" "" "$INSTDIR\philoftp.ico"
+  CreateShortCut "$SMPROGRAMS\PhiloFTP\卸载 PhiloFTP.lnk" "$INSTDIR\Uninstall.exe"
+
+  ; 防火墙放行（可选，通过 netsh 添加入站规则）
+  ExecWait 'netsh advfirewall firewall add rule name="PhiloFTP" dir=in action=allow program="$INSTDIR\philoftp.exe" enable=yes'
+SectionEnd
+
+; ---------- 卸载段 ----------
+Section "Uninstall"
+  ; 停止正在运行的进程
+  ExecWait 'taskkill /f /im philoftp.exe'
+  Sleep 500
+
+  ; 删除快捷方式
+  Delete "$DESKTOP\PhiloFTP.lnk"
+  Delete "$SMPROGRAMS\PhiloFTP\PhiloFTP.lnk"
+  Delete "$SMPROGRAMS\PhiloFTP\卸载 PhiloFTP.lnk"
+  RMDir "$SMPROGRAMS\PhiloFTP"
+
+  ; 删除防火墙规则
+  ExecWait 'netsh advfirewall firewall delete rule name="PhiloFTP"'
+
+  ; 删除注册表卸载信息
+  DeleteRegKey HKLM "${REG_UNINSTALL}"
+  DeleteRegKey HKLM "Software\PhiloFTP"
+
+  ; 删除文件
+  Delete "$INSTDIR\philoftp.exe"
+  Delete "$INSTDIR\philoftp.ico"
+  Delete "$INSTDIR\Uninstall.exe"
+  Delete "$INSTDIR\README.txt"
+  RMDir /r "$INSTDIR\data"
+  RMDir /r "$INSTDIR\configs"
+  RMDir "$INSTDIR"
+
+SectionEnd

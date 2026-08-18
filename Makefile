@@ -3,7 +3,7 @@
 BINARY      := philoftp
 DIST        := dist
 
-.PHONY: build run clean dist-macos dist-windows dist-linux dist test
+.PHONY: build run clean dist-macos dist-windows dist-linux dist installer-windows test
 
 ## build: 编译到 dist/macos/$(BINARY)（本地运行用）
 build:
@@ -23,6 +23,11 @@ dist-macos:
 dist-windows:
 	GOOS=windows GOARCH=amd64 go build -o $(DIST)/windows/$(BINARY)-windows-amd64.exe .
 	cd $(DIST)/windows && zip $(BINARY)-windows.zip $(BINARY)-windows-amd64.exe
+
+## installer-windows: 生成 Windows 安装程序（需 NSIS：brew install nsis）
+installer-windows: dist-windows
+	cp build/windows/installer.nsi $(DIST)/windows/installer.nsi
+	cd $(DIST)/windows && makensis installer.nsi
 
 ## dist-linux: 构建 Linux 二进制
 dist-linux:
