@@ -385,6 +385,17 @@ td .mono,td.mono{font-size:13px;color:var(--haze);}
 .prompt-box .hint{margin-top:8px;text-align:center;}
 @media (prefers-reduced-motion: reduce){.prompt-ico{animation:none;}}
 
+/* 上传同名冲突弹窗 */
+.uc-list{margin:6px 0 18px;padding:0;list-style:none;max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
+.uc-list::-webkit-scrollbar{width:8px;}
+.uc-list::-webkit-scrollbar-thumb{background:rgba(251,191,36,.25);border-radius:4px;}
+.uc-list li{padding:10px 14px;background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.2);border-radius:10px;
+  font-family:var(--font-mono);font-size:13px;color:var(--txt);display:flex;align-items:center;gap:8px;}
+.uc-list li::before{content:'⚠';color:#fbbf24;flex-shrink:0;}
+.uc-actions{flex-wrap:wrap;}
+.uc-actions .btn{min-width:120px;}
+
+
 /* 文件预览弹层 */
 .preview-box{background:var(--panel);border:1px solid rgba(34,211,238,.25);border-radius:16px;width:min(900px,94vw);max-height:90vh;display:flex;flex-direction:column;
   box-shadow:0 30px 80px -20px rgba(0,0,0,.8),0 0 0 1px rgba(34,211,238,.1);overflow:hidden;}

@@ -563,6 +563,31 @@ func deleteFileHandler(cfg *config.Config, store *repository.DBStore) gin.Handle
 }
 
 // uploadHandler 文件上传（同时兼容单文件字段 file 与多文件字段 files）
+// 上传同名文件冲突处理模式
+const (
+	uploadModeRename    = "rename"    // 自动重命名（默认）
+	uploadModeOverwrite = "overwrite" // 覆盖原文件
+	uploadModeCancel    = "cancel"    // 存在同名则取消整个上传
+)
+
+// uniqueName 返回不冲突的目标文件名：若 name 已存在，则在主名后加 _时间戳 再尝试，
+// 仍冲突则递增序号，直到可用。
+func uniqueName(dir, name string) string {
+	if _, err := os.Stat(filepath.Join(dir, name)); os.IsNotExist(err) {
+		return name
+	}
+	ext := filepath.Ext(name)
+	base := name[:len(name)-len(ext)]
+	for i := 0; i < 100; i++ {
+		cand := fmt.Sprintf("%s_%d%s", base, time.Now().UnixNano()%1000000, ext)
+		if _, err := os.Stat(filepath.Join(dir, cand)); os.IsNotExist(err) {
+			return cand
+		}
+	}
+	// 兜底：追加随机序号
+	return fmt.Sprintf("%s_%d%s", base, time.Now().UnixNano(), ext)
+}
+
 func uploadHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user, ok := currentUserOf(c)
@@ -575,6 +600,10 @@ func uploadHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFun
 			return
 		}
 		path := c.PostForm("path")
+		mode := c.PostForm("mode")
+		if mode == "" {
+			mode = uploadModeRename
+		}
 		full, err := safeJoin(cfg, user, path)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -594,14 +623,60 @@ func uploadHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFun
 			c.JSON(http.StatusBadRequest, gin.H{"error": "未收到文件"})
 			return
 		}
+
+		// 冲突检测：收集与目标目录中已存在同名的文件
+		var conflicts []map[string]string
+		exists := make(map[string]bool)
+		for _, f := range files {
+			name := filepath.Base(f.Filename)
+			if exists[name] {
+				continue // 同批次内重复文件按一次处理
+			}
+			if _, err := os.Stat(filepath.Join(full, name)); err == nil {
+				exists[name] = true
+				conflicts = append(conflicts, map[string]string{"name": name})
+			}
+		}
+
+		// mode=cancel：存在同名则取消整个上传，返回 409 与冲突清单
+		if mode == uploadModeCancel && len(conflicts) > 0 {
+			c.JSON(http.StatusConflict, gin.H{
+				"ok":       false,
+				"error":    "存在同名文件，已取消上传",
+				"conflicts": conflicts,
+			})
+			return
+		}
+
+		// 执行上传
+		renamed := make([]map[string]string, 0)
+		overwritten := 0
 		for _, file := range files {
-			dst := filepath.Join(full, filepath.Base(file.Filename))
+			name := filepath.Base(file.Filename)
+			dstName := name
+			if mode == uploadModeRename {
+				if _, err := os.Stat(filepath.Join(full, name)); err == nil {
+					dstName = uniqueName(full, name)
+					renamed = append(renamed, map[string]string{"from": name, "to": dstName})
+				}
+			} else if mode == uploadModeOverwrite {
+				if _, err := os.Stat(filepath.Join(full, name)); err == nil {
+					overwritten++
+				}
+			}
+			dst := filepath.Join(full, dstName)
 			if err := c.SaveUploadedFile(file, dst); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "保存失败: " + file.Filename})
 				return
 			}
 		}
-		c.JSON(http.StatusOK, gin.H{"ok": true, "count": len(files)})
+		c.JSON(http.StatusOK, gin.H{
+			"ok":         true,
+			"count":      len(files),
+			"mode":       mode,
+			"overwritten": overwritten,
+			"renamed":    renamed,
+		})
 	}
 }
 

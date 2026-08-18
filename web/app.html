@@ -189,6 +189,20 @@
     </div>
   </div>
 </div>
+<!-- 上传同名冲突确认弹窗 -->
+<div class="overlay" id="uploadConflict">
+  <div class="modal glass" style="width:440px">
+    <div class="confirm-ico" style="background:rgba(251,191,36,.15);color:#fbbf24;box-shadow:0 0 18px rgba(251,191,36,.25)">⚠️</div>
+    <h3>同名文件冲突</h3>
+    <div class="prompt-msg">以下文件在目标目录中已存在，请选择处理方式：</div>
+    <ul id="ucList" class="uc-list"></ul>
+    <div class="confirm-actions uc-actions">
+      <button class="btn btn-primary btn-md" id="ucOverwrite">覆盖原文件</button>
+      <button class="btn btn-ghost btn-md" id="ucRename">自动重命名</button>
+      <button class="btn btn-ghost btn-md" id="ucCancel">取消上传</button>
+    </div>
+  </div>
+</div>
 <div class="overlay" id="ovAddCardModal">
   <div class="modal glass confirm-box prompt-box" style="width:440px">
     <div class="confirm-ico prompt-ico" id="ovAddIco">📋</div>

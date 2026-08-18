@@ -866,7 +866,56 @@
   }
   function upload(files){
     if(!files || !files.length) return;
-    var fd = new FormData(); fd.append('path', state.curPath);
+    // 立即快照文件数组，避免异步回调期间 FileList 失效
+    var fileArr = Array.prototype.slice.call(files);
+    // 上传前先检查目标目录是否存在同名文件（非目录）
+    api('/api/files?path=' + encodeURIComponent(state.curPath)).then(function(x){
+      var existing = [];
+      if(x.ok) existing = (x.d.items || []).filter(function(f){ return !f.is_dir; }).map(function(f){ return f.name; });
+      var selected = fileArr.map(function(f){ return f.name; });
+      // 找出同名冲突（去重）
+      var conflicts = [];
+      var seen = {};
+      selected.forEach(function(n){
+        if(existing.indexOf(n) !== -1 && !seen[n]){ seen[n] = 1; conflicts.push(n); }
+      });
+      if(conflicts.length){
+        showUploadConflict(fileArr, conflicts);
+      } else {
+        doUpload(fileArr, 'rename');
+      }
+    });
+  }
+
+  // 展示上传同名冲突弹窗，让用户选择处理方式
+  function showUploadConflict(files, conflicts){
+    el('ucList').innerHTML = conflicts.map(function(n){ return '<li>'+esc(n)+'</li>'; }).join('');
+    el('uploadConflict').classList.add('show');
+    var done = false;
+    function close(){ if(done) return; done = true; el('uploadConflict').classList.remove('show'); cleanup(); }
+    function pick(mode){
+      if(done) return; done = true;
+      el('uploadConflict').classList.remove('show');
+      cleanup();
+      if(mode === 'cancel') return; // 取消上传
+      doUpload(files, mode);
+    }
+    function cleanup(){
+      el('ucOverwrite').removeEventListener('click', function(){});
+      el('ucRename').removeEventListener('click', function(){});
+      el('ucCancel').removeEventListener('click', function(){});
+      el('uploadConflict').removeEventListener('click', overlayClose);
+    }
+    function overlayClose(e){ if(e.target === el('uploadConflict')) pick('cancel'); }
+    el('ucOverwrite').onclick = function(){ pick('overwrite'); };
+    el('ucRename').onclick = function(){ pick('rename'); };
+    el('ucCancel').onclick = function(){ pick('cancel'); };
+    el('uploadConflict').addEventListener('click', overlayClose);
+  }
+
+  // 执行上传（携带 mode）
+  function doUpload(files, mode){
+    var fd = new FormData(); fd.append('path', state.curPath); fd.append('mode', mode);
     qa('#fileInput').forEach(function(){ }); // noop
     for(var i=0;i<files.length;i++) fd.append('files', files[i]);
     el('mask').classList.add('show');
@@ -875,7 +924,14 @@
     xhr.withCredentials = true;
     xhr.upload.onprogress = function(e){ if(e.lengthComputable){ var pct = Math.round(e.loaded/e.total*100); el('pbar').style.width = pct+'%'; el('pmeta').textContent = pct+'%'; } };
     xhr.onload = function(){ el('mask').classList.remove('show'); el('pbar').style.width='0'; el('pmeta').textContent='0%';
-      try{ var d = JSON.parse(xhr.responseText); if(d.ok || xhr.status===200){ toast('上传完成', true); loadFiles(); } else toast(d.error||'上传失败', false); }
+      try{ var d = JSON.parse(xhr.responseText);
+        if(d.ok || xhr.status===200){
+          var msg = '上传完成';
+          if(d.overwritten) msg += '（覆盖 ' + d.overwritten + ' 个文件）';
+          else if(d.renamed && d.renamed.length) msg += '（重命名 ' + d.renamed.length + ' 个文件）';
+          toast(msg, true); loadFiles();
+        } else toast(d.error||'上传失败', false);
+      }
       catch(e){ toast('上传失败', false); } };
     xhr.onerror = function(){ el('mask').classList.remove('show'); toast('网络错误', false); };
     xhr.send(fd);
