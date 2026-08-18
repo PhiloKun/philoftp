@@ -168,6 +168,14 @@ body{background:var(--bg);color:var(--txt);font-family:var(--font-body);min-heig
 .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
 .pathbar{flex:0 1 auto;min-width:120px;max-width:100%;padding:8px 14px;border-radius:10px;background:rgba(7,10,18,.6);border:1px solid var(--line);color:var(--haze);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .toolbar .btn{width:auto;flex:0 0 auto;}
+/* 批量操作栏 */
+.batch-bar{display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:10px 14px;border-radius:10px;
+  background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.2);flex-wrap:wrap;}
+.batch-count{font-size:13px;color:var(--cyan);margin-left:auto;}
+.check-inline{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--txt);cursor:pointer;margin:0;}
+.chk-cell{width:34px;text-align:center;vertical-align:middle;}
+/* 回收站 */
+.trash-tip{font-size:12px;color:var(--muted);margin-bottom:12px;padding:10px 14px;background:rgba(251,191,36,.05);border:1px dashed rgba(251,191,36,.18);border-radius:8px;}
 
 .check{display:flex;align-items:center;gap:12px;margin-bottom:8px;cursor:pointer;font-size:14px;color:#cdd9ec;}
 
@@ -465,6 +473,9 @@ td .mono,td.mono{font-size:13px;color:var(--haze);}
   border-radius:12px;z-index:50;font-size:14px;opacity:0;transform:translateY(-10px);transition:.3s;max-width:360px;
   box-shadow:0 14px 40px -12px rgba(0,0,0,.7);}
 .toast.show{opacity:1;transform:none;} .toast.ok{border-color:rgba(52,211,153,.5);} .toast.err{border-color:rgba(251,113,133,.5);}
+.toast-undo{margin-left:12px;padding:5px 12px;border-radius:6px;border:1px solid rgba(34,211,238,.4);background:rgba(34,211,238,.12);
+  color:var(--cyan);font-size:12px;cursor:pointer;transition:.15s;}
+.toast-undo:hover{background:rgba(34,211,238,.22);}
 
 .mask{position:fixed;inset:0;background:rgba(3,6,12,.6);display:none;align-items:center;justify-content:center;z-index:40;padding:16px;}
 .mask.show{display:flex;}

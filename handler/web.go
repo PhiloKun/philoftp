@@ -70,9 +70,14 @@ func StartWeb(cfg *config.Config, store *repository.DBStore, webFS fs.FS) (*WebS
 	authed.GET("/api/overview", overviewHandler(cfg, store, auth))
 	authed.GET("/api/files", filesHandler(cfg, store))
 	authed.DELETE("/api/files", deleteFileHandler(cfg, store))
+	authed.POST("/api/files/batch-delete", batchDeleteHandler(cfg))
 	authed.POST("/api/mkdir", mkdirHandler(cfg, store))
 	authed.POST("/api/upload", uploadHandler(cfg, store))
 	authed.GET("/api/download", downloadHandler(cfg, store))
+	// 回收站
+	authed.GET("/api/trash", trashHandler(cfg))
+	authed.POST("/api/trash/restore", trashRestoreHandler(cfg))
+	authed.DELETE("/api/trash", trashClearHandler(cfg))
 	authed.POST("/api/logout", auth.Logout)
 	authed.GET("/api/me", func(c *gin.Context) {
 		u, _ := auth.CurrentUserOf(c)
@@ -603,11 +608,19 @@ func deleteFileHandler(cfg *config.Config, store *repository.DBStore) gin.Handle
 			c.JSON(http.StatusBadRequest, gin.H{"error": "不能删除主目录根路径"})
 			return
 		}
-		if err := os.RemoveAll(full); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "删除失败: " + err.Error()})
+		// 删除改为移入回收站（可恢复）
+		trashMu.Lock()
+		item, err := moveToTrash(cfg, user, path)
+		if err != nil {
+			trashMu.Unlock()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"ok": true})
+		items, _ := loadTrash(cfg, user)
+		items = append(items, item)
+		_ = saveTrash(cfg, user, items)
+		trashMu.Unlock()
+		c.JSON(http.StatusOK, gin.H{"ok": true, "trash_key": item.Key})
 	}
 }
 

@@ -130,9 +130,17 @@
           <button class="btn btn-ghost btn-sm" id="newDirBtn">＋ 新建目录</button>
           <button class="btn btn-ghost btn-sm" id="refreshBtn">⟳ 刷新</button>
           <label class="btn btn-primary btn-sm" style="margin:0">⬆ 上传<input id="fileInput" type="file" multiple style="display:none"></label>
+          <button class="btn btn-ghost btn-sm" id="trashBtn" title="查看回收站">🗑 回收站</button>
         </div>
         <div class="breadcrumb" id="breadcrumb"></div>
-        <div class="table-wrap"><table><thead><tr><th>名称</th><th>大小</th><th>修改时间</th><th style="width:160px">操作</th></tr></thead><tbody id="fileList"></tbody></table></div>
+        <div class="batch-bar" id="batchBar" style="display:none">
+          <label class="check check-inline"><input type="checkbox" id="selAll"> 全选</label>
+          <button class="btn btn-ghost btn-xs" id="selInvert">反选</button>
+          <button class="btn btn-ghost btn-xs" id="selClear">取消选择</button>
+          <span class="batch-count" id="selCount">已选 0 项</span>
+          <button class="btn btn-danger btn-xs" id="batchDelBtn">🗑 删除选中</button>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th style="width:34px"><input type="checkbox" id="selAllHead"></th><th>名称</th><th>大小</th><th>修改时间</th><th style="width:160px">操作</th></tr></thead><tbody id="fileList"></tbody></table></div>
         <div class="empty" id="fileEmpty" style="display:none">此目录为空</div>
       </section>
 
@@ -173,6 +181,17 @@
         </div>
 
         <div class="empty" style="text-align:left;padding:10px 0 0;color:var(--muted)">注：FTP / PASV / FTPS 保存后立即热重载；数据目录与注册开关实时生效；Web 端口需重启进程生效。</div>
+      </section>
+
+      <!-- 回收站 -->
+      <section class="view" id="v-trash">
+        <div class="sec-head"><h2>回收站</h2>
+          <button class="btn btn-ghost btn-sm" id="trashBack">← 返回文件管理</button>
+          <button class="btn btn-danger btn-sm" id="trashClear">清空回收站</button>
+        </div>
+        <div class="trash-tip">已删除的文件会暂存在此，可恢复或彻底删除。</div>
+        <div class="table-wrap"><table><thead><tr><th>名称</th><th>原始位置</th><th>删除时间</th><th style="width:120px">操作</th></tr></thead><tbody id="trashList"></tbody></table></div>
+        <div class="empty" id="trashEmpty" style="display:none">回收站为空</div>
       </section>
 
       <!-- 关于 -->

@@ -12,6 +12,18 @@
     var t = el('toast'); t.textContent = msg; t.className = 'toast show ' + (ok?'ok':'err');
     clearTimeout(t._t); t._t = setTimeout(function(){ t.className = 'toast'; }, 2600);
   }
+  // 带"撤销"按钮的 toast
+  function toastWithUndo(msg, onUndo){
+    var t = el('toast');
+    t.innerHTML = '<span>'+esc(msg)+'</span><button class="toast-undo">撤销</button>';
+    t.className = 'toast show ok';
+    var undoBtn = t.querySelector('.toast-undo');
+    undoBtn.onclick = function(){
+      clearTimeout(t._t); t.className = 'toast';
+      if(onUndo) onUndo();
+    };
+    clearTimeout(t._t); t._t = setTimeout(function(){ t.className = 'toast'; }, 6000);
+  }
 
   // 自定义确认弹窗：替换原生 confirm()，与「深空控制台」玻璃拟态风格统一
   function confirmDialog(opts){
@@ -144,6 +156,7 @@
     if(id==='files') loadFiles();
     if(id==='users') loadUsers();
     if(id==='settings') loadSettings();
+    if(id==='trash') loadTrash();
     if(id==='about') loadAbout();
   }
 
@@ -775,8 +788,12 @@
         ops += ' <button class="btn btn-danger btn-sm" data-del="'+esc(f.name)+'">删除</button>';
         var nameCell = '<span class="row-name'+(f.is_dir?' is-dir':'')+'" data-name="'+esc(f.name)+'" data-isdir="'+(f.is_dir?'1':'0')+'">'
           +(f.is_dir?'📁 ':'📄 ')+esc(f.name)+(f.is_dir?' ›':'')+'</span>';
-        return '<tr><td>'+nameCell+'</td><td class="mono">'+fmtSize(f.size)+'</td><td class="mono">'+esc(f.mod_time||'')+'</td><td>'+ops+'</td></tr>';
+        var check = '<input type="checkbox" data-check="'+esc(f.name)+'" data-path="'+esc(fullPath(p,f.name))+'" title="选择 '+(f.is_dir?'目录':'文件')+'">';
+        return '<tr><td class="chk-cell">'+check+'</td><td>'+nameCell+'</td><td class="mono">'+fmtSize(f.size)+'</td><td class="mono">'+esc(f.mod_time||'')+'</td><td>'+ops+'</td></tr>';
       }).join('');
+      // 勾选变更时同步批量栏
+      qa('input[data-check]', tb).forEach(function(cb){ cb.onchange = syncSelection; });
+      syncSelection();
       qa('[data-open]', tb).forEach(function(b){ b.onclick = function(){ var np = p === '/' ? '/' + b.getAttribute('data-open') : p + '/' + b.getAttribute('data-open'); loadFiles(np); }; });
       qa('[data-prev]', tb).forEach(function(b){ b.onclick = function(){ preview(p, b.getAttribute('data-prev')); }; });
       qa('[data-dl]', tb).forEach(function(b){ b.onclick = function(){ download(p, b.getAttribute('data-dl')); }; });
@@ -797,6 +814,82 @@
       });
     });
   }
+  // 拼接当前目录下的完整路径
+  function fullPath(dir, name){
+    return (dir === '/' || dir === '') ? ('/' + name) : (dir + '/' + name);
+  }
+  // 同步批量操作栏：统计选中数、显示/隐藏、全选按钮状态
+  function syncSelection(){
+    var checks = qa('input[data-check]', el('fileList'));
+    var sel = checks.filter(function(c){ return c.checked; });
+    var count = sel.length;
+    el('selCount').textContent = '已选 ' + count + ' 项';
+    el('batchBar').style.display = count ? 'flex' : 'none';
+    var all = checks.length && sel.length === checks.length;
+    if(el('selAll').checked !== all) el('selAll').checked = all;
+    if(el('selAllHead').checked !== all) el('selAllHead').checked = all;
+  }
+  // 批量删除：将选中的文件/目录移入回收站
+  function batchDelete(){
+    var sel = qa('input[data-check]', el('fileList')).filter(function(c){ return c.checked; });
+    if(!sel.length) return;
+    var paths = sel.map(function(c){ return c.getAttribute('data-path'); });
+    var names = sel.map(function(c){ return c.getAttribute('data-check'); });
+    confirmDialog({
+      type:'danger',
+      title:'批量删除',
+      message:'确定要删除选中的 <b style="color:var(--err)">'+sel.length+' 项</b> 吗？<br>'+names.slice(0,5).map(function(n){ return '「'+esc(n)+'」'; }).join(' ') + (names.length>5 ? ' 等…' : '') + '<br>删除后将移入<b>回收站</b>，可恢复。',
+      okText:'确认删除',
+      onOk:function(){
+        api('/api/files/batch-delete', { method:'POST', body: JSON.stringify({ paths: paths }) }).then(function(x){
+          if(x.ok){
+            toast('已删除 ' + x.d.moved + ' 项（已移入回收站）', true);
+            loadFiles();
+          } else toast(x.d.error||'删除失败', false);
+        });
+      }
+    });
+  }
+
+  // ===== 回收站 =====
+  function loadTrash(){
+    el('trashList').innerHTML = '';
+    el('trashEmpty').style.display = 'none';
+    api('/api/trash').then(function(x){
+      if(!x.ok){ toast(x.d.error||'加载回收站失败', false); return; }
+      var items = x.d.items || [];
+      if(!items.length){ el('trashEmpty').style.display = 'block'; return; }
+      el('trashList').innerHTML = items.map(function(t){
+        return '<tr><td><span class="row-name">🗑 '+esc(t.name)+'</span></td>'+
+          '<td class="mono">'+esc(t.orig_path||'')+'</td>'+
+          '<td class="mono">'+esc(t.deleted_at||'')+'</td>'+
+          '<td><button class="btn btn-primary btn-sm" data-restore="'+esc(t.key)+'">恢复</button></td></tr>';
+      }).join('');
+      qa('[data-restore]', el('trashList')).forEach(function(b){
+        b.onclick = function(){
+          api('/api/trash/restore', { method:'POST', body: JSON.stringify({ keys: [b.getAttribute('data-restore')] }) }).then(function(x){
+            if(x.ok){ toast('已恢复 ' + x.d.restored + ' 项', true); loadTrash(); loadFiles(); }
+            else toast(x.d.error||'恢复失败', false);
+          });
+        };
+      });
+    });
+  }
+  function clearTrash(){
+    confirmDialog({
+      type:'danger',
+      title:'清空回收站',
+      message:'确定要<b style="color:var(--err)">彻底删除</b>回收站中的所有文件吗？此操作<b>不可恢复</b>。',
+      okText:'清空',
+      onOk:function(){
+        api('/api/trash', { method:'DELETE' }).then(function(x){
+          if(x.ok){ toast('回收站已清空', true); loadTrash(); }
+          else toast(x.d.error||'清空失败', false);
+        });
+      }
+    });
+  }
+
   // 面包屑导航：将路径拆为逐级可点击段
   function renderBreadcrumb(p){
     var parts = (p || '/').split('/').filter(Boolean);
@@ -855,14 +948,28 @@
     confirmDialog({
       type:'danger',
       title:'删除文件',
-      message:'确定要删除 <b style="color:var(--txt)">「'+esc(name)+'」</b> 吗？此操作将<b style="color:var(--err)">不可恢复</b>。',
+      message:'确定要删除 <b style="color:var(--txt)">「'+esc(name)+'」</b> 吗？删除后将移入<b>回收站</b>，可恢复。',
       okText:'确认删除',
       onOk:function(){
-        var full = (dir==='/'?'':dir) + '/' + name;
+        var full = fullPath(dir, name);
         api('/api/files?path=' + encodeURIComponent(full), { method:'DELETE' }).then(function(x){
-          if(x.ok){ toast('已删除', true); loadFiles(); } else toast(x.d.error||'删除失败', false);
+          if(x.ok){ toastWithUndo('已删除「'+name+'」（已移入回收站）', function(){ undoDelete(full); }); loadFiles(); }
+          else toast(x.d.error||'删除失败', false);
         });
       }
+    });
+  }
+  // 撤销删除：通过回收站恢复最近删除项
+  function undoDelete(path){
+    api('/api/trash').then(function(x){
+      if(!x.ok) return;
+      var items = x.d.items || [];
+      var hit = items.filter(function(t){ return t.orig_path === path; })[0];
+      if(!hit){ toast('未找到可恢复的项', false); return; }
+      api('/api/trash/restore', { method:'POST', body: JSON.stringify({ keys: [hit.key] }) }).then(function(y){
+        if(y.ok){ toast('已撤销删除，恢复成功', true); loadFiles(); }
+        else toast(y.d.error||'恢复失败', false);
+      });
     });
   }
   function mkdir(){
@@ -1110,6 +1217,16 @@
       el('previewClose').onclick = closePreview;
       el('preview').onclick = function(e){ if(e.target === el('preview')) closePreview(); };
       el('fileInput').onchange = function(e){ upload(e.target.files); e.target.value=''; };
+      // 回收站
+      el('trashBtn').onclick = function(){ showView('trash'); };
+      el('trashBack').onclick = function(){ showView('files'); };
+      el('trashClear').onclick = clearTrash;
+      // 批量操作
+      el('selAllHead').onchange = function(){ var on = el('selAllHead').checked; qa('input[data-check]', el('fileList')).forEach(function(cb){ cb.checked = on; }); syncSelection(); };
+      el('selAll').onchange = function(){ var on = el('selAll').checked; qa('input[data-check]', el('fileList')).forEach(function(cb){ cb.checked = on; }); syncSelection(); };
+      el('selInvert').onclick = function(){ qa('input[data-check]', el('fileList')).forEach(function(cb){ cb.checked = !cb.checked; }); syncSelection(); };
+      el('selClear').onclick = function(){ qa('input[data-check]', el('fileList')).forEach(function(cb){ cb.checked = false; }); syncSelection(); };
+      el('batchDelBtn').onclick = batchDelete;
       if(state.role === 'admin'){
         el('addUserBtn').onclick = function(){ openUserModal(''); };
         el('saveSettingsBtn').onclick = saveSettings;
