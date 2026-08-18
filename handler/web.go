@@ -10,9 +10,11 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -40,6 +42,7 @@ func StartWeb(cfg *config.Config, store *repository.DBStore, webFS fs.FS) (strin
 	authed := r.Group("")
 	authed.Use(auth.RequireAuth())
 	authed.GET("/api/status", statusHandler(cfg, store))
+	authed.GET("/api/overview", overviewHandler(cfg, store, auth))
 	authed.GET("/api/files", filesHandler(cfg, store))
 	authed.DELETE("/api/files", deleteFileHandler(cfg, store))
 	authed.POST("/api/mkdir", mkdirHandler(cfg, store))
@@ -91,6 +94,194 @@ func statusHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFun
 			"ftps":       cfg.EnableFTPS,
 			"uptime":     time.Since(config.StartTime).Round(time.Second).String(),
 			"user_count": len(store.List()),
+		})
+	}
+}
+
+// overviewHandler 返回概览页所需的完整统计快照：
+// 用户分布 / 文件统计 / 存储用量 / 活跃会话 / 系统运行指标 / 最近更新时间。
+func overviewHandler(cfg *config.Config, store *repository.DBStore, auth *AuthManager) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		dataDir := config.DataDirOf(cfg)
+		users := store.List()
+
+		// 1) 用户统计
+		var userTotal = len(users)
+		var userEnabled, userAdmins int
+		for _, u := range users {
+			if u.Enabled {
+				userEnabled++
+			}
+			if u.Role == model.RoleAdmin {
+				userAdmins++
+			}
+		}
+
+		// 2) 活跃会话：合并同用户（取最近一次登录时间）
+		loggedSet := make(map[string]time.Time)
+		if auth != nil {
+			for _, s := range auth.table {
+				if t, ok := loggedSet[s.username]; !ok || s.createdAt.After(t) {
+					loggedSet[s.username] = s.createdAt
+				}
+			}
+		}
+		loggedUsers := make([]map[string]interface{}, 0, len(loggedSet))
+		for uname, t := range loggedSet {
+			role := "user"
+			for _, u := range users {
+				if u.Username == uname {
+					if u.Role == model.RoleAdmin {
+						role = "admin"
+					}
+					break
+				}
+			}
+			loggedUsers = append(loggedUsers, map[string]interface{}{
+				"username":  uname,
+				"role":      role,
+				"login_at":  t.Format("2006-01-02 15:04:05"),
+				"login_ago": time.Since(t).Round(time.Second).String(),
+			})
+		}
+		sort.Slice(loggedUsers, func(i, j int) bool {
+			return loggedUsers[i]["login_at"].(string) > loggedUsers[j]["login_at"].(string)
+		})
+
+		// 3) 文件统计（递归遍历 data 目录）
+		var (
+			fileTotal int64
+			dirTotal  int64
+			sizeTotal int64
+		)
+		extCount := make(map[string]int64)
+		extSize := make(map[string]int64)
+		var topFiles []map[string]interface{}
+		var latestMod time.Time
+
+		_ = filepath.WalkDir(dataDir, func(p string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return nil
+			}
+			if p == dataDir {
+				return nil
+			}
+			info, ierr := d.Info()
+			if ierr != nil {
+				return nil
+			}
+			if d.IsDir() {
+				dirTotal++
+				return nil
+			}
+			fileTotal++
+			sizeTotal += info.Size()
+			ext := strings.ToLower(filepath.Ext(p))
+			name := filepath.Base(p)
+			// 隐藏文件 / .gitkeep / 常见占位文件归为"其它"，避免扩展名被误判
+			if ext == "" || strings.HasPrefix(name, ".") || name == ".gitkeep" || name == "Thumbs.db" || name == ".DS_Store" {
+				ext = "其它"
+			} else {
+				ext = strings.TrimPrefix(ext, ".")
+			}
+			extCount[ext]++
+			extSize[ext] += info.Size()
+			if info.ModTime().After(latestMod) {
+				latestMod = info.ModTime()
+			}
+			rel, _ := filepath.Rel(dataDir, p)
+			topFiles = append(topFiles, map[string]interface{}{
+				"path": rel,
+				"size": info.Size(),
+			})
+			return nil
+		})
+
+		// Top 文件按大小降序，取前 5
+		sort.Slice(topFiles, func(i, j int) bool {
+			return topFiles[i]["size"].(int64) > topFiles[j]["size"].(int64)
+		})
+		if len(topFiles) > 5 {
+			topFiles = topFiles[:5]
+		}
+
+		// 扩展名分布：按总大小降序
+		type extKV struct {
+			ext   string
+			size  int64
+			count int64
+		}
+		extList := make([]extKV, 0, len(extSize))
+		for k, v := range extSize {
+			extList = append(extList, extKV{k, v, extCount[k]})
+		}
+		sort.Slice(extList, func(i, j int) bool { return extList[i].size > extList[j].size })
+		extDist := make([]map[string]interface{}, 0, len(extList))
+		for _, e := range extList {
+			extDist = append(extDist, map[string]interface{}{
+				"ext":   e.ext,
+				"size":  e.size,
+				"count": e.count,
+			})
+		}
+
+		// 4) 磁盘容量（macOS/Linux/Windows 通用 syscall.Statfs）
+		storage := map[string]interface{}{}
+		if total, free, ok := diskStatfs(dataDir); ok {
+			storage["total"] = total
+			storage["free"] = free
+			storage["used"] = total - free
+			if total > 0 {
+				storage["used_pct"] = float64(total-free) * 100 / float64(total)
+			}
+			storage["path"] = dataDir
+		}
+
+		// 5) 运行时长 / 系统
+		uptime := time.Since(config.StartTime).Round(time.Second).String()
+		now := time.Now().Format("2006-01-02 15:04:05")
+		var lastUpdateStr string
+		if latestMod.IsZero() {
+			lastUpdateStr = "—"
+		} else {
+			lastUpdateStr = latestMod.Format("2006-01-02 15:04:05")
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"now":         now,
+			"uptime":      uptime,
+			"last_update": lastUpdateStr,
+
+			"users": gin.H{
+				"total":       userTotal,
+				"enabled":     userEnabled,
+				"disabled":    userTotal - userEnabled,
+				"admins":      userAdmins,
+				"normal":      userTotal - userAdmins,
+				"logged_in":   len(loggedSet),
+				"logged_list": loggedUsers,
+			},
+
+			"files": gin.H{
+				"file_count": fileTotal,
+				"dir_count":  dirTotal,
+				"total_size": sizeTotal,
+				"top_files":  topFiles,
+				"ext_dist":   extDist,
+			},
+
+			"storage": storage,
+			"load": gin.H{
+				"goroutines": runtime.NumGoroutine(),
+				"go_version": runtime.Version(),
+			},
+			"server": gin.H{
+				"ftp_port":   cfg.FTPPort,
+				"web_port":   cfg.WebPort,
+				"pasv_ports": fmt.Sprintf("%d-%d", cfg.PASVMinPort, cfg.PASVMaxPort),
+				"ftps":       cfg.EnableFTPS,
+				"data_dir":   dataDir,
+			},
 		})
 	}
 }
@@ -476,4 +667,31 @@ func usersHandler(store *repository.DBStore) gin.HandlerFunc {
 		}
 		c.JSON(http.StatusOK, out)
 	}
+}
+
+// diskStatfs 跨平台获取路径所在磁盘的总容量与剩余容量（字节）。
+// macOS / Linux: syscall.Statfs；Windows: syscall.Statfs 同样可用。
+// 不可用时返回 ok=false，由调用方决定是否省略存储指标。
+func diskStatfs(path string) (total, free int64, ok bool) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		abs = path
+	}
+	var stat syscall.Statfs_t
+	if err := syscall.Statfs(abs, &stat); err != nil {
+		return 0, 0, false
+	}
+	bsize := stat.Bsize
+	if bsize <= 0 {
+		// Windows 平台才有 Frsize 字段（macOS/Linux Bsize 已足够）
+		// 此处不直接访问 Frsize 以保证跨平台编译
+		return 0, 0, false
+	}
+	total = int64(stat.Blocks) * int64(bsize)
+	avail := stat.Bavail
+	if avail <= 0 {
+		avail = stat.Bfree
+	}
+	free = int64(avail) * int64(bsize)
+	return total, free, true
 }

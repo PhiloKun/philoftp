@@ -152,26 +152,187 @@
   }
 
   // ===== 概览 =====
+  // 概览页：调用 /api/overview 一次性获取完整统计快照，
+  // 渲染多区块仪表盘（KPI / 分布条形图 / 环形存储 / 活跃会话 / Top 文件等）
   function loadOverview(){
-    api('/api/status').then(function(x){ if(x.ok) el('ovStatus').innerHTML =
-      'FTP：<b style="color:var(--cyan)">'+(x.d.ftp_port||'-')+'</b> · Web：<b style="color:var(--cyan)">'+(x.d.web_port||'-')+'</b><br>'+
-      '运行时长：'+(x.d.uptime||'-')+'<br>FTP 连接：'+(x.d.ftp_conns||0)+' · 登录用户：'+(x.d.logged_in||0); });
-    api('/api/about').then(function(x){ if(x.ok) el('ovAbout').innerHTML =
-      'PhiloFTP '+esc(x.d.version||'')+'<br>Go '+esc(x.d.go_version||'')+(x.d.git_commit?' · '+esc(x.d.git_commit):''); });
-    var cards = [
-      { lbl:'📂 当前目录', big:'/', id:'c-files', go:'files' },
-      { lbl:'⚡ 系统状态', big:'在线', id:'c-status', go:'system' }
+    // 头部
+    el('ovNow').textContent = '同步中…';
+    el('ovUptime').textContent = '—';
+    el('ovKpiMain').innerHTML = skeletonKpi(4);
+    el('ovKpiSub').innerHTML = skeletonKpi(3);
+
+    api('/api/overview').then(function(x){
+      if(!x.ok){ toast(x.d.error||'概览加载失败', false); return; }
+      renderOverview(x.d);
+    });
+  }
+  function skeletonKpi(n){
+    var s = '';
+    for(var i=0;i<n;i++) s += '<div class="ov-kpi-cell ov-skel"><div class="ov-skel-line w40"></div><div class="ov-skel-line w70"></div><div class="ov-skel-line w30"></div></div>';
+    return s;
+  }
+  function fmtSize(n){
+    if(n==null || n===0) return '0 B';
+    if(n<1024) return n+' B';
+    if(n<1048576) return (n/1024).toFixed(1)+' KB';
+    if(n<1073741824) return (n/1048576).toFixed(1)+' MB';
+    return (n/1073741824).toFixed(2)+' GB';
+  }
+  function pct(a, b){
+    if(!b) return 0;
+    return Math.max(0, Math.min(100, a*100/b));
+  }
+  function renderOverview(d){
+    // 顶部时间与运行时长
+    el('ovNow').textContent = '同步于 ' + (d.now || '—');
+    el('ovUptime').textContent = d.uptime || '—';
+
+    // 主 KPI 4 卡
+    var fileSize = d.files.total_size || 0;
+    var usedPct = d.storage.used_pct || 0;
+    el('ovKpiMain').innerHTML = [
+      kpiCell('👥 用户总数', d.users.total, '启用 ' + d.users.enabled + ' · 禁用 ' + d.users.disabled, 'cyan', 'users'),
+      kpiCell('🟢 活跃会话', d.users.logged_in, '最近登录用户数', 'ok', 'users'),
+      kpiCell('🗂 文件 / 目录', (d.files.file_count||0) + ' / ' + (d.files.dir_count||0), fmtSize(fileSize), 'cyan2', 'files'),
+      kpiCell('💾 存储使用', (usedPct||0).toFixed(1) + '%', d.storage.total? (fmtSize(d.storage.used)+' / '+fmtSize(d.storage.total)) : '—', usedPct>85?'err':(usedPct>60?'warn':'ok'), 'system')
+    ].join('');
+
+    // 副 KPI 3 卡
+    el('ovKpiSub').innerHTML = [
+      kpiCell('🛡 管理员', d.users.admins, '普通用户 ' + d.users.normal, 'cyan'),
+      kpiCell('📁 数据目录', d.server.data_dir || '—', 'FTP 数据根', 'cyan2', 'files'),
+      kpiCell('⚙ Go 运行时', (d.load.go_version||'').replace('go',''), '协程 ' + d.load.goroutines, 'ok', 'system')
+    ].join('');
+
+    // 用户分布
+    renderUserBars(d.users);
+    // 文件类型分布
+    renderExtBars(d.files.ext_dist || []);
+    // Top 5 大文件
+    renderTopFiles(d.files.top_files || []);
+    // 服务器状态
+    renderServer(d.server);
+    // 活跃会话
+    renderLogged(d.users);
+    // 存储环
+    renderStorage(d.storage);
+    // 运行时负载
+    renderLoad(d.load);
+    // 最近更新
+    el('ovLastUpdate').textContent = d.last_update || '—';
+    el('ovLastSub').textContent = d.last_update && d.last_update !== '—' ? '数据目录中最近修改的文件' : '暂无文件修改记录';
+
+    // 绑定跳转
+    qa('[data-go]', el('v-overview')).forEach(function(b){
+      b.onclick = function(){
+        var v = b.getAttribute('data-go');
+        if(!v) return;
+        showView(v);
+      };
+    });
+  }
+  function kpiCell(lbl, big, sub, tone, go){
+    return '<div class="ov-kpi-cell tone-'+(tone||'cyan')+(go?' clickable':'')+'"'+(go?' data-go="'+go+'"':'')+'>'+
+      '<div class="ov-kpi-lbl">'+lbl+'</div>'+
+      '<div class="ov-kpi-big">'+esc(big)+'</div>'+
+      '<div class="ov-kpi-sub">'+esc(sub)+'</div>'+
+    '</div>';
+  }
+  function renderUserBars(u){
+    var total = Math.max(1, u.total);
+    var rows = [
+      { name:'管理员',   val:u.admins,    color:'var(--cyan)',   icon:'🛡' },
+      { name:'普通用户', val:u.normal,    color:'var(--cyan2)',  icon:'👤' },
+      { name:'已启用',   val:u.enabled,   color:'var(--ok)',     icon:'✓' },
+      { name:'已禁用',   val:u.disabled,  color:'var(--err)',    icon:'⛔' },
+      { name:'活跃会话', val:u.logged_in, color:'#a78bfa',       icon:'🟢' }
     ];
-    if(state.role === 'admin'){
-      cards.push({ lbl:'👥 用户总数', big:'…', id:'c-users', go:'users' });
-    }
-    el('statCards').innerHTML = cards.map(function(c){
-      return '<div class="card pad" data-go="'+c.go+'"><div class="lbl">'+c.lbl+'</div><div class="big" id="'+c.id+'">'+c.big+'</div></div>';
+    el('ovUserBars').innerHTML = rows.map(function(r){
+      var p = Math.round(r.val * 100 / total);
+      return '<div class="ov-bar"><div class="ov-bar-lbl"><span>'+r.icon+' '+r.name+'</span><b>'+r.val+'</b></div>'+
+        '<div class="ov-bar-track"><i class="ov-bar-fill" style="width:'+p+'%;background:'+r.color+'"></i></div></div>';
     }).join('');
-    qa('#statCards .card').forEach(function(c){ c.onclick = function(){ showView(c.getAttribute('data-go')); }; });
-    if(state.role === 'admin'){
-      api('/api/users').then(function(x){ if(x.ok) el('c-users').textContent = (x.d.users||[]).length; });
+    el('ovUserFoot').innerHTML = '<span>共 <b style="color:var(--cyan)">'+u.total+'</b> 个账户</span>';
+  }
+  function renderExtBars(list){
+    if(!list.length){ el('ovExtBars').innerHTML = '<div class="ov-empty">数据目录为空，暂无文件类型</div>'; el('ovExtHint').textContent=''; return; }
+    var top = list.slice(0, 6);
+    var maxSize = top[0] ? top[0].size : 1;
+    el('ovExtBars').innerHTML = top.map(function(e){
+      var p = Math.round(e.size * 100 / maxSize);
+      return '<div class="ov-bar mini"><div class="ov-bar-lbl"><span>.'+esc(e.ext)+'</span><b>'+fmtSize(e.size)+' · '+e.count+' 个</b></div>'+
+        '<div class="ov-bar-track"><i class="ov-bar-fill" style="width:'+p+'%;background:linear-gradient(90deg,var(--cyan),var(--cyan2))"></i></div></div>';
+    }).join('');
+    el('ovExtHint').textContent = '共 ' + list.length + ' 种类型';
+  }
+  function renderTopFiles(list){
+    if(!list.length){ el('ovTopFiles').innerHTML = '<div class="ov-empty">暂无文件</div>'; return; }
+    el('ovTopFiles').innerHTML = list.map(function(f, i){
+      return '<div class="ov-top-row"><span class="ov-top-i">#'+(i+1)+'</span>'+
+        '<span class="ov-top-path mono" title="'+esc(f.path)+'">'+esc(f.path)+'</span>'+
+        '<span class="ov-top-size mono">'+fmtSize(f.size)+'</span></div>';
+    }).join('');
+  }
+  function renderServer(s){
+    var rows = [
+      ['FTP 控制端口',  s.ftp_port,  'cyan'],
+      ['Web 管理端口',  s.web_port,  'cyan'],
+      ['PASV 端口范围', s.pasv_ports,'cyan2'],
+      ['FTPS 加密',     s.ftps ? '已启用' : '未启用', s.ftps?'ok':'muted'],
+      ['数据目录',      s.data_dir,  'muted']
+    ];
+    el('ovServer').innerHTML = rows.map(function(r){
+      return '<div class="ov-kv-row"><span class="ov-kv-k">'+r[0]+'</span><span class="ov-kv-v mono tone-'+r[2]+'">'+esc(r[1])+'</span></div>';
+    }).join('');
+  }
+  function renderLogged(u){
+    var list = u.logged_list || [];
+    el('ovLoggedHint').textContent = list.length + ' 个会话';
+    if(!list.length){
+      el('ovLogged').innerHTML = '<div class="ov-empty">当前无活跃会话</div>';
+      return;
     }
+    el('ovLogged').innerHTML = list.map(function(s){
+      var tag = s.role === 'admin' ? '<span class="tag tag-adm">管理员</span>' : '<span class="tag tag-off">用户</span>';
+      return '<div class="ov-sess"><div class="ov-sess-avatar">'+(s.username[0]||'?').toUpperCase()+'</div>'+
+        '<div class="ov-sess-info"><div class="ov-sess-name">'+esc(s.username)+' '+tag+'</div>'+
+        '<div class="ov-sess-time mono">'+esc(s.login_at)+' · '+esc(s.login_ago)+' 前</div></div></div>';
+    }).join('');
+  }
+  function renderStorage(s){
+    if(!s || !s.total){ el('ovUsedPct').textContent = '—'; el('ovStorage').innerHTML = '<div class="ov-empty">无法获取磁盘容量</div>'; return; }
+    var usedPct = s.used_pct || 0;
+    // 环形动画
+    var c = el('ovRing');
+    if(c){
+      var len = 2 * Math.PI * 50; // ≈314.16
+      c.setAttribute('stroke-dasharray', len.toFixed(2));
+      c.setAttribute('stroke-dashoffset', (len * (1 - usedPct/100)).toFixed(2));
+    }
+    el('ovUsedPct').textContent = usedPct.toFixed(1);
+    // 色调
+    var ring = el('ovRing');
+    if(ring){
+      ring.style.stroke = usedPct > 85 ? 'var(--err)' : usedPct > 60 ? 'var(--warn)' : 'var(--cyan)';
+    }
+    el('ovStorage').innerHTML = [
+      ['总容量',  fmtSize(s.total)],
+      ['已使用',  fmtSize(s.used)],
+      ['剩余',    fmtSize(s.free)],
+      ['数据目录', s.path || '—']
+    ].map(function(r){
+      return '<div class="ov-kv-row"><span class="ov-kv-k">'+r[0]+'</span><span class="ov-kv-v mono'+(r[0]==='剩余'?' tone-ok':'')+(r[0]==='已使用'?' tone-warn':'')+'">'+esc(r[1])+'</span></div>';
+    }).join('');
+  }
+  function renderLoad(l){
+    el('ovLoad').innerHTML = [
+      ['协程数', l.goroutines],
+      ['Go 版本', l.go_version],
+      ['健康度', l.goroutines < 1000 ? '良好' : (l.goroutines < 5000 ? '正常' : '关注')]
+    ].map(function(r){
+      var tone = r[0]==='健康度' ? (r[1]==='良好'?'tone-ok':(r[1]==='正常'?'tone-warn':'tone-err')) : 'tone-cyan2';
+      return '<div class="ov-kv-row"><span class="ov-kv-k">'+r[0]+'</span><span class="ov-kv-v mono '+tone+'">'+esc(r[1])+'</span></div>';
+    }).join('');
   }
 
   // ===== 文件 =====

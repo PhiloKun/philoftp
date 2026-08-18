@@ -33,10 +33,77 @@
     <main class="content">
       <!-- 概览 -->
       <section class="view active" id="v-overview">
-        <div class="grid grid-3 stagger" id="statCards"></div>
-        <div class="grid grid-2" style="margin-top:16px">
-          <div class="card pad"><div class="lbl">⚡ 实时状态</div><div id="ovStatus" class="about-line">加载中…</div></div>
-          <div class="card pad"><div class="lbl">⚙ 系统信息</div><div id="ovAbout" class="about-line">加载中…</div></div>
+        <div class="ov-head">
+          <div class="ov-pulse"><span class="ov-dot"></span><span id="ovNow">—</span><span class="ov-sep">·</span><span class="ov-uptime">运行 <b id="ovUptime">—</b></span></div>
+          <div class="ov-quick">
+            <button class="btn btn-ghost btn-sm" data-go="files">📂 文件管理</button>
+            <button class="btn btn-ghost btn-sm" data-go="users">👥 用户管理</button>
+            <button class="btn btn-ghost btn-sm" data-go="system">📊 系统信息</button>
+          </div>
+        </div>
+
+        <!-- 主 KPI：4 卡 -->
+        <div class="ov-kpi ov-kpi-main" id="ovKpiMain"></div>
+
+        <!-- 副 KPI：3 卡 -->
+        <div class="ov-kpi ov-kpi-sub" id="ovKpiSub"></div>
+
+        <!-- 主体三列 -->
+        <div class="ov-grid">
+          <!-- 左列：用户 / 文件分布 -->
+          <div class="ov-col">
+            <div class="card pad ov-card">
+              <div class="lbl">👥 用户分布</div>
+              <div id="ovUserBars" class="ov-bars"></div>
+              <div class="ov-foot" id="ovUserFoot"></div>
+            </div>
+            <div class="card pad ov-card">
+              <div class="lbl">🗂 文件类型分布 <span class="ov-hint" id="ovExtHint"></span></div>
+              <div id="ovExtBars" class="ov-bars ov-bars-mini"></div>
+            </div>
+            <div class="card pad ov-card">
+              <div class="lbl">📦 占用最大的文件 <span class="ov-hint">Top 5</span></div>
+              <div id="ovTopFiles" class="ov-top"></div>
+            </div>
+          </div>
+
+          <!-- 中列：服务器 / 活动 -->
+          <div class="ov-col">
+            <div class="card pad ov-card">
+              <div class="lbl">🛰 服务器状态</div>
+              <div id="ovServer" class="ov-kv"></div>
+            </div>
+            <div class="card pad ov-card">
+              <div class="lbl">🟢 活跃会话 <span class="ov-hint" id="ovLoggedHint">—</span></div>
+              <div id="ovLogged" class="ov-sessions"></div>
+            </div>
+          </div>
+
+          <!-- 右列：存储 / 负载 -->
+          <div class="ov-col">
+            <div class="card pad ov-card ov-storage">
+              <div class="lbl">💾 存储使用率</div>
+              <div class="ov-ring-wrap">
+                <svg class="ov-ring" viewBox="0 0 120 120">
+                  <circle class="ov-ring-bg" cx="60" cy="60" r="50"/>
+                  <circle class="ov-ring-fg" cx="60" cy="60" r="50" id="ovRing" stroke-dasharray="314.16" stroke-dashoffset="314.16"/>
+                </svg>
+                <div class="ov-ring-num">
+                  <b id="ovUsedPct">—</b><span class="ov-pct">%</span>
+                </div>
+              </div>
+              <div class="ov-kv ov-kv-mini" id="ovStorage"></div>
+            </div>
+            <div class="card pad ov-card">
+              <div class="lbl">⚙ 运行时负载</div>
+              <div id="ovLoad" class="ov-kv"></div>
+            </div>
+            <div class="card pad ov-card ov-misc">
+              <div class="lbl">🕒 最近更新</div>
+              <div class="ov-big" id="ovLastUpdate">—</div>
+              <div class="ov-sub" id="ovLastSub">最近修改的文件</div>
+            </div>
+          </div>
         </div>
       </section>
 
