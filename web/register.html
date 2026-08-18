@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PhiloFTP · 注册</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
@@ -18,13 +21,13 @@
     <div class="alert" id="alert"></div>
     <div class="field">
       <label>用户名</label>
-      <input class="input" id="u" placeholder="至少 3 个字符" autofocus>
-      <div class="hint" id="uHint"></div>
+      <input class="input" id="u" placeholder="至少 3 个字符，例如 alice" autocomplete="username" autofocus>
+      <div class="hint" id="uHint">用户名至少 3 个字符，仅支持字母、数字与下划线</div>
     </div>
     <div class="field">
       <label>密码</label>
       <div class="input-wrap">
-        <input class="input" id="p" type="password" placeholder="设置密码">
+        <input class="input" id="p" type="password" placeholder="8 位以上，含大小写、数字、符号" autocomplete="new-password">
         <span class="toggle" id="t">显示</span>
       </div>
       <div class="strength" id="strength">
@@ -34,7 +37,8 @@
     </div>
     <div class="field">
       <label>确认密码</label>
-      <input class="input" id="pc" type="password" placeholder="再次输入密码">
+      <input class="input" id="pc" type="password" placeholder="再次输入相同密码" autocomplete="new-password">
+      <div class="hint" id="pcHint">请再次输入与上面相同的密码</div>
     </div>
     <button class="btn btn-primary" id="b" type="submit">注 册</button>
     <div class="auth-link"><a href="/login">返回登录</a></div>

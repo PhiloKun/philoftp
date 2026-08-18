@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PhiloFTP · 控制台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
@@ -46,14 +49,14 @@
           <button class="btn btn-ghost btn-sm" id="refreshBtn">⟳ 刷新</button>
           <label class="btn btn-primary btn-sm" style="margin:0">⬆ 上传<input id="fileInput" type="file" multiple style="display:none"></label>
         </div>
-        <div class="card" style="padding:6px"><table><thead><tr><th>名称</th><th>大小</th><th>修改时间</th><th style="width:160px">操作</th></tr></thead><tbody id="fileList"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>名称</th><th>大小</th><th>修改时间</th><th style="width:160px">操作</th></tr></thead><tbody id="fileList"></tbody></table></div>
         <div class="empty" id="fileEmpty" style="display:none">此目录为空</div>
       </section>
 
       <!-- 用户管理 -->
       <section class="view" id="v-users" data-admin>
         <div class="sec-head"><h2>用户管理</h2><button class="btn btn-primary btn-sm" id="addUserBtn">＋ 新增用户</button></div>
-        <div class="card" style="padding:6px"><table><thead><tr><th>用户名</th><th>角色</th><th>状态</th><th>主目录</th><th style="width:160px">操作</th></tr></thead><tbody id="userList"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>用户名</th><th>角色</th><th>状态</th><th>主目录</th><th style="width:160px">操作</th></tr></thead><tbody id="userList"></tbody></table></div>
       </section>
 
       <!-- 基础设置 -->

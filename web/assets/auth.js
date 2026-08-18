@@ -23,19 +23,57 @@
     return lv;
   }
 
+  // 统一输入提示交互：聚焦显示 focus 提示，输入中按验证切换 ok/error，失焦且空则隐藏
+  function bindHint(inputId, hintId, focusText, validator){
+    var input = el(inputId), hint = el(hintId), field = input && input.closest('.field');
+    if(!input || !hint) return;
+    function set(cls, text){
+      hint.className = 'hint visible' + (cls ? ' '+cls : '');
+      if(text != null) hint.textContent = text;
+    }
+    function hide(){
+      if(!input.value){ hint.className = 'hint'; }
+    }
+    input.addEventListener('focus', function(){
+      if(field) field.classList.add('focused');
+      if(!input.value){ set('focus', focusText); }
+      else if(validator){ var r = validator(input.value); set(r.cls, r.text); }
+      else { set('focus', focusText); }
+    });
+    input.addEventListener('blur', function(){
+      if(field) field.classList.remove('focused');
+      hide();
+    });
+    input.addEventListener('input', function(){
+      if(validator){ var r = validator(input.value); set(r.cls, r.text); }
+      else { set('focus', focusText); }
+    });
+    // 初始：空则隐藏，有值则校验
+    hide();
+    if(input.value && validator){ var r = validator(input.value); set(r.cls, r.text); }
+  }
+
   function api(path, opts){
     return fetch(path, Object.assign({ headers:{'Content-Type':'application/json'}, credentials:'include' }, opts));
   }
 
-  // 探测自助注册开关
   fetch('/api/register/enabled').then(function(r){ return r.json(); }).then(function(d){
     if(d && d.enabled){
-      el('regLink').innerHTML = '没有账户？<a href="/register">立即注册</a>';
+      var link = el('regLink');
+      if(link) link.innerHTML = '没有账户？<a href="/register">立即注册</a>';
     }
   }).catch(function(){});
 
   window.initLogin = function(){
     bindToggle();
+    bindHint('u', 'uHint', '请输入用户名，例如 admin', function(v){
+      if(!v.trim()) return {cls:'focus', text:'请输入用户名，例如 admin'};
+      return {cls:'ok', text:'用户名格式正确'};
+    });
+    bindHint('p', 'pHint', '请输入登录密码', function(v){
+      if(!v) return {cls:'focus', text:'请输入登录密码'};
+      return {cls:'ok', text:'已输入密码'};
+    });
     el('f').onsubmit = function(e){
       e.preventDefault();
       alertBox('');
@@ -60,16 +98,26 @@
       var bars = document.querySelectorAll('#strength .bar');
       bars.forEach(function(b, i){ b.className = 'bar' + (i < lv ? ' lv'+lv : ''); });
       var hint = el('pHint');
-      if(!p.value){ hint.textContent=''; hint.className='hint'; }
-      else if(lv < 3){ hint.textContent='密码强度较弱（建议 8 位以上，含大小写、数字、符号）'; hint.className='hint error'; }
-      else { hint.textContent='密码强度良好'; hint.className='hint ok'; }
+      if(!p.value){ hint.className='hint'; hint.textContent=''; }
+      else if(lv < 3){ hint.className='hint visible error'; hint.textContent='密码强度较弱（建议 8 位以上，含大小写、数字、符号）'; }
+      else { hint.className='hint visible ok'; hint.textContent='密码强度良好'; }
     }
-    p.oninput = paintStrength;
-    u.oninput = function(){
-      var h = el('uHint');
-      if(u.value.length > 0 && u.value.length < 3){ h.textContent='用户名至少 3 个字符'; h.className='hint error'; }
-      else { h.textContent=''; h.className='hint'; }
-    };
+    p.addEventListener('input', paintStrength);
+    p.addEventListener('focus', function(){ if(!p.value) el('pHint').className='hint visible focus'; el('pHint').textContent='8 位以上，包含大小写、数字、符号'; });
+    p.addEventListener('blur', function(){ if(!p.value){ el('pHint').className='hint'; el('pHint').textContent=''; } });
+
+    bindHint('u', 'uHint', '用户名至少 3 个字符，仅支持字母、数字与下划线', function(v){
+      if(!v) return {cls:'focus', text:'用户名至少 3 个字符，仅支持字母、数字与下划线'};
+      if(v.length < 3) return {cls:'error', text:'用户名太短，至少 3 个字符'};
+      if(!/^[A-Za-z0-9_]+$/.test(v)) return {cls:'error', text:'用户名仅支持字母、数字与下划线'};
+      return {cls:'ok', text:'用户名可用'};
+    });
+    bindHint('pc', 'pcHint', '请再次输入与上面相同的密码', function(v){
+      if(!v) return {cls:'focus', text:'请再次输入与上面相同的密码'};
+      if(v !== p.value) return {cls:'error', text:'两次输入的密码不一致'};
+      return {cls:'ok', text:'两次输入一致'};
+    });
+
     el('f').onsubmit = function(e){
       e.preventDefault();
       alertBox('');

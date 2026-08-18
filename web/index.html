@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PhiloFTP · 登录</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
@@ -18,14 +21,16 @@
     <div class="alert" id="alert"></div>
     <div class="field">
       <label>用户名</label>
-      <input class="input" id="u" placeholder="admin" autofocus>
+      <input class="input" id="u" placeholder="例如 admin" autocomplete="username" autofocus>
+      <div class="hint" id="uHint">请输入用户名，例如 admin</div>
     </div>
     <div class="field">
       <label>密码</label>
       <div class="input-wrap">
-        <input class="input" id="p" type="password" placeholder="••••••••">
+        <input class="input" id="p" type="password" placeholder="输入登录密码" autocomplete="current-password">
         <span class="toggle" id="t">显示</span>
       </div>
+      <div class="hint" id="pHint">请输入登录密码</div>
     </div>
     <button class="btn btn-primary" id="b" type="submit">登 录</button>
     <div class="auth-link" id="regLink"></div>
