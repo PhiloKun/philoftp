@@ -39,6 +39,7 @@
             <button class="btn btn-ghost btn-sm" data-go="files">📂 文件管理</button>
             <button class="btn btn-ghost btn-sm" data-go="users">👥 用户管理</button>
             <button class="btn btn-ghost btn-sm" data-go="system">📊 系统信息</button>
+            <button class="btn btn-ghost btn-sm" id="ovResetLayout" title="恢复默认卡片布局">↺ 重置布局</button>
           </div>
         </div>
 
@@ -49,10 +50,10 @@
         <div class="ov-kpi ov-kpi-sub" id="ovKpiSub"></div>
 
         <!-- 主体三列 -->
-        <div class="ov-grid">
+        <div class="ov-grid" id="ovGrid">
           <!-- 左列：用户分布（独占，更突出） -->
-          <div class="ov-col">
-            <div class="card pad ov-card ov-card-tall">
+          <div class="ov-col" id="ovCol0">
+            <div class="card pad ov-card ov-card-tall" draggable="true" data-ov-card-id="user-dist">
               <div class="lbl">👥 用户分布</div>
               <div id="ovUserBars" class="ov-bars"></div>
               <div class="ov-foot" id="ovUserFoot"></div>
@@ -60,16 +61,16 @@
           </div>
 
           <!-- 中列：服务器 / 活动 / 最近更新 -->
-          <div class="ov-col">
-            <div class="card pad ov-card">
+          <div class="ov-col" id="ovCol1">
+            <div class="card pad ov-card" draggable="true" data-ov-card-id="server-status">
               <div class="lbl">🛰 服务器状态</div>
               <div id="ovServer" class="ov-kv"></div>
             </div>
-            <div class="card pad ov-card">
+            <div class="card pad ov-card" draggable="true" data-ov-card-id="active-sessions">
               <div class="lbl">🟢 活跃会话 <span class="ov-hint" id="ovLoggedHint">—</span></div>
               <div id="ovLogged" class="ov-sessions"></div>
             </div>
-            <div class="card pad ov-card ov-misc">
+            <div class="card pad ov-card ov-misc" draggable="true" data-ov-card-id="last-update">
               <div class="lbl">🕒 最近更新</div>
               <div class="ov-big" id="ovLastUpdate">—</div>
               <div class="ov-sub" id="ovLastSub">最近修改的文件</div>
@@ -77,8 +78,8 @@
           </div>
 
           <!-- 右列：存储 / 文件分布 / Top 文件 -->
-          <div class="ov-col">
-            <div class="card pad ov-card ov-storage">
+          <div class="ov-col" id="ovCol2">
+            <div class="card pad ov-card ov-storage" draggable="true" data-ov-card-id="storage-ring">
               <div class="lbl">💾 存储使用率</div>
               <div class="ov-ring-wrap">
                 <svg class="ov-ring" viewBox="0 0 120 120">
@@ -91,11 +92,11 @@
               </div>
               <div class="ov-kv ov-kv-mini" id="ovStorage"></div>
             </div>
-            <div class="card pad ov-card">
+            <div class="card pad ov-card" draggable="true" data-ov-card-id="file-ext">
               <div class="lbl">🗂 文件类型分布 <span class="ov-hint" id="ovExtHint"></span></div>
               <div id="ovExtBars" class="ov-bars ov-bars-mini"></div>
             </div>
-            <div class="card pad ov-card">
+            <div class="card pad ov-card" draggable="true" data-ov-card-id="top-files">
               <div class="lbl">📦 占用最大的文件 <span class="ov-hint">Top 5</span></div>
               <div id="ovTopFiles" class="ov-top"></div>
             </div>

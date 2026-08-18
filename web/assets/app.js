@@ -189,17 +189,17 @@
     var fileSize = d.files.total_size || 0;
     var usedPct = d.storage.used_pct || 0;
     el('ovKpiMain').innerHTML = [
-      kpiCell('👥 用户总数', d.users.total, '启用 ' + d.users.enabled + ' · 禁用 ' + d.users.disabled, 'cyan', 'users'),
-      kpiCell('🟢 活跃会话', d.users.logged_in, '最近登录用户数', 'ok', 'users'),
-      kpiCell('🗂 文件 / 目录', (d.files.file_count||0) + ' / ' + (d.files.dir_count||0), fmtSize(fileSize), 'cyan2', 'files'),
-      kpiCell('💾 存储使用', (usedPct||0).toFixed(1) + '%', d.storage.total? (fmtSize(d.storage.used)+' / '+fmtSize(d.storage.total)) : '—', usedPct>85?'err':(usedPct>60?'warn':'ok'), 'system')
+      kpiCell('kpi-users',   '👥 用户总数', d.users.total, '启用 ' + d.users.enabled + ' · 禁用 ' + d.users.disabled, 'cyan', 'users'),
+      kpiCell('kpi-sessions','🟢 活跃会话', d.users.logged_in, '最近登录用户数', 'ok', 'users'),
+      kpiCell('kpi-files',   '🗂 文件 / 目录', (d.files.file_count||0) + ' / ' + (d.files.dir_count||0), fmtSize(fileSize), 'cyan2', 'files'),
+      kpiCell('kpi-storage', '💾 存储使用', (usedPct||0).toFixed(1) + '%', d.storage.total? (fmtSize(d.storage.used)+' / '+fmtSize(d.storage.total)) : '—', usedPct>85?'err':(usedPct>60?'warn':'ok'), 'system')
     ].join('');
 
     // 副 KPI 3 卡
     el('ovKpiSub').innerHTML = [
-      kpiCell('🛡 管理员', d.users.admins, '普通用户 ' + d.users.normal, 'cyan'),
-      kpiCell('📁 数据目录', d.server.data_dir || '—', 'FTP 数据根', 'cyan2', 'files'),
-      kpiCell('⚙ Go 运行时', (d.load.go_version||'').replace('go',''), '协程 ' + d.load.goroutines, 'ok', 'system')
+      kpiCell('kpi-admins',  '🛡 管理员', d.users.admins, '普通用户 ' + d.users.normal, 'cyan'),
+      kpiCell('kpi-datadir', '📁 数据目录', d.server.data_dir || '—', 'FTP 数据根', 'cyan2', 'files'),
+      kpiCell('kpi-go',      '⚙ Go 运行时', (d.load.go_version||'').replace('go',''), '协程 ' + d.load.goroutines, 'ok', 'system')
     ].join('');
 
     // 用户分布
@@ -228,9 +228,154 @@
         showView(v);
       };
     });
+
+    // 启用概览页卡片拖拽自定义布局
+    initOverviewDrag();
+    applyOverviewLayout();
+
+    // 重置布局按钮
+    var resetBtn = el('ovResetLayout');
+    if(resetBtn){
+      resetBtn.onclick = function(){
+        localStorage.removeItem('philoftp-overview-layout');
+        toast('已恢复默认布局', true);
+        applyOverviewLayout(); // 无保存布局时自然恢复默认
+      };
+    }
   }
-  function kpiCell(lbl, big, sub, tone, go){
-    return '<div class="ov-kpi-cell tone-'+(tone||'cyan')+(go?' clickable':'')+'"'+(go?' data-go="'+go+'"':'')+'>'+
+
+  // ===== 概览页卡片拖拽布局 =====
+  var _ovDragSrc = null;
+  function initOverviewDrag(){
+    // 为主体 ov-card 补充拖拽手柄（KPI 卡片已在 kpiCell 中内联）
+    qa('.ov-card[data-ov-card-id]').forEach(function(card){
+      if(!card.querySelector('.ov-drag-handle')){
+        var h = document.createElement('span');
+        h.className = 'ov-drag-handle';
+        h.title = '拖动调整卡片位置';
+        h.textContent = '⋮⋮';
+        card.insertBefore(h, card.firstChild);
+      }
+      card.setAttribute('draggable', 'true');
+    });
+
+    var draggables = qa('[data-ov-card-id]');
+    draggables.forEach(function(item){
+      item.ondragstart = onOvDragStart;
+      item.ondragend = onOvDragEnd;
+    });
+    var containers = ['ovKpiMain','ovKpiSub','ovCol0','ovCol1','ovCol2'];
+    containers.forEach(function(id){
+      var c = el(id);
+      if(!c) return;
+      c.ondragover = onOvDragOver;
+      c.ondragenter = onOvDragEnter;
+      c.ondragleave = onOvDragLeave;
+      c.ondrop = onOvDrop;
+    });
+  }
+  function onOvDragStart(e){
+    _ovDragSrc = this;
+    this.classList.add('ov-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', this.getAttribute('data-ov-card-id'));
+  }
+  function onOvDragEnd(e){
+    this.classList.remove('ov-dragging');
+    qa('.ov-drop-target').forEach(function(n){ n.classList.remove('ov-drop-target'); });
+    _ovDragSrc = null;
+    saveOverviewLayout();
+  }
+  function onOvDragEnter(e){
+    e.preventDefault();
+    if(this === _ovDragSrc || this === _ovDragSrc.parentNode) return;
+    this.classList.add('ov-drop-target');
+  }
+  function onOvDragLeave(e){
+    this.classList.remove('ov-drop-target');
+  }
+  function onOvDragOver(e){
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    var container = this;
+    var afterEl = getOvDropAfter(container, e.clientY, e.clientX);
+    if(_ovDragSrc && _ovDragSrc.parentNode === container && afterEl === _ovDragSrc.nextElementSibling){
+      return;
+    }
+    // 移动源元素到目标位置
+    if(_ovDragSrc){
+      if(afterEl) container.insertBefore(_ovDragSrc, afterEl);
+      else container.appendChild(_ovDragSrc);
+    }
+  }
+  function onOvDrop(e){
+    e.preventDefault();
+    this.classList.remove('ov-drop-target');
+    saveOverviewLayout();
+  }
+  // 计算容器内拖拽应插入到哪个子元素之前
+  // KPI 容器是横向 grid，用 clientX；ov-col 是纵向 flex，用 clientY
+  function getOvDropAfter(container, y, x){
+    var draggable = qa('[data-ov-card-id]', container);
+    var isRow = container.classList.contains('ov-kpi');
+    return draggable.reduce(function(closest, child){
+      if(child === _ovDragSrc) return closest;
+      var box = child.getBoundingClientRect();
+      var offset;
+      if(isRow){
+        offset = x - (box.left + box.width / 2);
+        if(offset < 0 && offset > closest.offset){
+          return { offset: offset, element: child };
+        }
+      } else {
+        offset = y - (box.top + box.height / 2);
+        if(offset < 0 && offset > closest.offset){
+          return { offset: offset, element: child };
+        }
+      }
+      return closest;
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+  }
+  function saveOverviewLayout(){
+    try {
+      var layout = {};
+      ['ovKpiMain','ovKpiSub','ovCol0','ovCol1','ovCol2'].forEach(function(id){
+        var c = el(id);
+        if(!c) return;
+        layout[id] = qa('[data-ov-card-id]', c).map(function(n){ return n.getAttribute('data-ov-card-id'); });
+      });
+      localStorage.setItem('philoftp-overview-layout', JSON.stringify(layout));
+    } catch(err){}
+  }
+  function applyOverviewLayout(){
+    try {
+      var raw = localStorage.getItem('philoftp-overview-layout');
+      if(!raw) return;
+      var layout = JSON.parse(raw);
+      Object.keys(layout).forEach(function(id){
+        var c = el(id);
+        if(!c) return;
+        var ids = layout[id];
+        ids.forEach(function(cardId){
+          var card = findOvCard(cardId);
+          if(card) c.appendChild(card);
+        });
+      });
+    } catch(err){}
+  }
+  function findOvCard(id){
+    var found = null;
+    ['ovKpiMain','ovKpiSub','ovCol0','ovCol1','ovCol2'].forEach(function(cid){
+      var c = el(cid);
+      if(!c) return;
+      qa('[data-ov-card-id="'+id+'"]', c).forEach(function(n){ found = n; });
+    });
+    return found;
+  }
+
+  function kpiCell(id, lbl, big, sub, tone, go){
+    return '<div class="ov-kpi-cell tone-'+(tone||'cyan')+(go?' clickable':'')+'" draggable="true" data-ov-card-id="'+id+'"'+(go?' data-go="'+go+'"':'')+'>'+
+      '<span class="ov-drag-handle" title="拖动调整卡片位置">⋮⋮</span>'+
       '<div class="ov-kpi-lbl">'+lbl+'</div>'+
       '<div class="ov-kpi-big">'+esc(big)+'</div>'+
       '<div class="ov-kpi-sub">'+esc(sub)+'</div>'+

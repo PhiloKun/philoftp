@@ -307,9 +307,29 @@ td .mono,td.mono{font-size:13px;color:var(--haze);}
 /* 空态 */
 .ov-empty{padding:14px 8px;font-size:13px;color:var(--muted);text-align:center;background:rgba(7,10,18,.3);border-radius:8px;border:1px dashed rgba(30,42,64,.6);}
 
+/* ===== 概览页卡片拖拽布局 ===== */
+.ov-kpi-cell,.ov-card{position:relative;}
+.ov-drag-handle{position:absolute;top:10px;right:10px;width:18px;height:18px;display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:10px;letter-spacing:-1px;cursor:grab;opacity:.35;transition:.18s;border-radius:4px;z-index:3;
+  -webkit-user-select:none;user-select:none;}
+.ov-drag-handle:hover{opacity:.85;color:var(--cyan);background:rgba(34,211,238,.1);box-shadow:0 0 10px rgba(34,211,238,.15);}
+.ov-drag-handle:active{cursor:grabbing;}
+.ov-kpi-cell:hover .ov-drag-handle,.ov-card:hover .ov-drag-handle{opacity:.55;}
+.ov-kpi-cell .ov-drag-handle{top:8px;right:8px;}
+.ov-card .ov-drag-handle{top:9px;right:10px;}
+/* 拖拽中 */
+.ov-dragging{opacity:.55;transform:scale(.985);box-shadow:0 20px 50px -15px rgba(0,0,0,.7),0 0 0 2px rgba(34,211,238,.4);cursor:grabbing;z-index:10;}
+.ov-kpi-cell.ov-dragging{filter:brightness(1.05);}
+/* 放置目标高亮 */
+.ov-drop-target{outline:2px dashed rgba(34,211,238,.55);outline-offset:-2px;border-radius:14px;background:rgba(34,211,238,.05);box-shadow:inset 0 0 30px rgba(34,211,238,.08);}
+/* 重置布局按钮 */
+#ovResetLayout{transition:.18s;}
+#ovResetLayout:hover{color:var(--cyan);background:rgba(34,211,238,.1);}
+
 @media (prefers-reduced-motion: reduce){
   .ov-dot,.ov-bar-fill,.ov-kpi-cell,.ov-card{animation:none!important;}
   .ov-ring-fg{transition:none!important;}
+  .ov-dragging{transition:none!important;}
 }
 
 /* 输入弹窗（新建目录等）：青色基调 */
