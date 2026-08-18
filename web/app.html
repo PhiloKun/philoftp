@@ -124,27 +124,31 @@
         <div class="table-wrap"><table><thead><tr><th>用户名</th><th>角色</th><th>状态</th><th>主目录</th><th style="width:160px">操作</th></tr></thead><tbody id="userList"></tbody></table></div>
       </section>
 
-      <!-- 基础设置 -->
-      <section class="view" id="v-basic" data-admin>
-        <div class="sec-head"><h2>基础设置</h2><button class="btn btn-primary btn-sm" id="saveBasicBtn">保存更改</button></div>
-        <div class="grid grid-2">
-          <div class="card pad"><div class="lbl">📁 数据根目录</div><input class="input" id="cfgDataDir"></div>
-          <div class="card pad"><div class="lbl">🌐 允许自助注册</div>
-            <label class="check"><input type="checkbox" id="cfgRegister"> 开启后访客可在 /register 自助注册</label></div>
-        </div>
-      </section>
+      <!-- 设置（合并基础设置 + 系统配置） -->
+      <section class="view" id="v-settings" data-admin>
+        <div class="sec-head"><h2>系统设置</h2><button class="btn btn-primary btn-sm" id="saveSettingsBtn">保存更改</button></div>
 
-      <!-- 系统配置 -->
-      <section class="view" id="v-config" data-admin>
-        <div class="sec-head"><h2>系统配置</h2><button class="btn btn-primary btn-sm" id="saveCfgBtn">保存更改</button></div>
-        <div class="grid grid-2">
-          <div class="card pad"><div class="lbl">🔌 FTP 控制端口</div><input class="input" id="cfgFtpPort" type="number"></div>
-          <div class="card pad"><div class="lbl">🖥 Web 管理端口</div><input class="input" id="cfgWebPort" type="number"></div>
-          <div class="card pad"><div class="lbl">📡 PASV 被动端口范围</div><input class="input" id="cfgPasv" placeholder="例如 40000-41000"></div>
-          <div class="card pad"><div class="lbl">🔒 启用 FTPS (TLS)</div>
-            <label class="check"><input type="checkbox" id="cfgFtps"> 启用加密传输</label></div>
+        <div class="cfg-group">
+          <div class="cfg-group-title">🔌 服务端口</div>
+          <div class="grid grid-2">
+            <div class="card pad"><div class="lbl">FTP 控制端口</div><input class="input" id="cfgFtpPort" type="number" placeholder="2121"></div>
+            <div class="card pad"><div class="lbl">Web 管理端口</div><input class="input" id="cfgWebPort" type="number" placeholder="9090"></div>
+            <div class="card pad"><div class="lbl">PASV 被动端口范围</div><input class="input" id="cfgPasv" placeholder="例如 40000-41000"></div>
+          </div>
         </div>
-        <div class="empty" style="text-align:left;padding:10px 0 0;color:#6a7c98">注：FTP / PASV / FTPS 保存后立即热重载；Web 端口需重启进程生效。</div>
+
+        <div class="cfg-group">
+          <div class="cfg-group-title">📂 存储与访问</div>
+          <div class="grid grid-2">
+            <div class="card pad"><div class="lbl">数据根目录</div><input class="input" id="cfgDataDir" placeholder="data"></div>
+            <div class="card pad"><div class="lbl">🔒 启用 FTPS (TLS)</div>
+              <label class="check"><input type="checkbox" id="cfgFtps"> 启用加密传输</label></div>
+            <div class="card pad"><div class="lbl">🌐 允许自助注册</div>
+              <label class="check"><input type="checkbox" id="cfgRegister"> 开启后访客可在 /register 自助注册</label></div>
+          </div>
+        </div>
+
+        <div class="empty" style="text-align:left;padding:10px 0 0;color:var(--muted)">注：FTP / PASV / FTPS 保存后立即热重载；数据目录与注册开关实时生效；Web 端口需重启进程生效。</div>
       </section>
 
       <!-- 系统信息 -->

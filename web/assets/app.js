@@ -117,8 +117,7 @@
     { id:'overview', ico:'◳', label:'概览', admin:false },
     { id:'files', ico:'🗂', label:'文件管理', admin:false },
     { id:'users', ico:'👥', label:'用户管理', admin:true },
-    { id:'basic', ico:'🛠', label:'基础设置', admin:true },
-    { id:'config', ico:'⚙', label:'系统配置', admin:true },
+    { id:'settings', ico:'⚙', label:'系统设置', admin:true },
     { id:'system', ico:'📊', label:'系统信息', admin:false },
     { id:'about', ico:'ℹ', label:'关于', admin:false }
   ];
@@ -139,14 +138,13 @@
   function showView(id){
     qa('.view').forEach(function(v){ v.classList.toggle('active', v.id === 'v-'+id); });
     qa('.nav-item').forEach(function(n){ n.classList.toggle('active', n.getAttribute('data-view') === id); });
-    var labels = { overview:'概览', files:'文件管理', users:'用户管理', basic:'基础设置', config:'系统配置', system:'系统信息', about:'关于' };
+    var labels = { overview:'概览', files:'文件管理', users:'用户管理', settings:'系统设置', system:'系统信息', about:'关于' };
     el('title').textContent = labels[id] || '控制台';
     el('crumb').textContent = '控制台 · ' + (labels[id] || '');
     if(id==='overview') loadOverview();
     if(id==='files') loadFiles();
     if(id==='users') loadUsers();
-    if(id==='basic') loadBasic();
-    if(id==='config') loadConfig();
+    if(id==='settings') loadSettings();
     if(id==='system') loadSystem();
     if(id==='about') loadAbout();
   }
@@ -566,41 +564,48 @@
     });
   }
 
-  // ===== 基础设置 / 系统配置 =====
-  function field(id){ return el(id).value; }
-  function loadBasic(){
-    api('/api/config').then(function(x){
-      if(!x.ok){ toast(x.d.error||'加载失败', false); return; }
-      state.cfg = x.d; var c = x.d;
-      el('cfgDataDir').value = c.data_dir || '';
-      el('cfgRegister').checked = !!c.allow_register;
-    });
-  }
-  function saveBasic(){
-    var body = { allow_register: el('cfgRegister').checked, data_dir: el('cfgDataDir').value.trim() };
-    api('/api/config', { method:'PUT', body: JSON.stringify(body) }).then(function(x){
-      if(x.ok){ toast('基础设置已保存', true); loadBasic(); loadOverview(); } else toast(x.d.error||'保存失败', false);
-    });
-  }
-  function loadConfig(){
+  // ===== 系统设置（合并原基础设置 + 系统配置） =====
+  function loadSettings(){
     api('/api/config').then(function(x){
       if(!x.ok){ toast(x.d.error||'加载失败', false); return; }
       state.cfg = x.d; var c = x.d;
       el('cfgFtpPort').value = c.ftp_port || '';
       el('cfgWebPort').value = c.web_port || '';
-      el('cfgPasv').value = c.pasv_port_range || '';
+      // PASV 端口范围：后端返回 pasv_min_port/pasv_max_port 两个字段，前端组合为 "min-max"
+      if(c.pasv_min_port && c.pasv_max_port){
+        el('cfgPasv').value = c.pasv_min_port + '-' + c.pasv_max_port;
+      } else {
+        el('cfgPasv').value = '';
+      }
       el('cfgFtps').checked = !!c.enable_ftps;
+      el('cfgDataDir').value = c.data_dir || '';
+      el('cfgRegister').checked = !!c.allow_register;
     });
   }
-  function saveCfg(){
+  function saveSettings(){
     var body = {
       ftp_port: parseInt(el('cfgFtpPort').value,10),
       web_port: parseInt(el('cfgWebPort').value,10),
-      pasv_port_range: el('cfgPasv').value.trim(),
-      enable_ftps: el('cfgFtps').checked
+      enable_ftps: el('cfgFtps').checked,
+      data_dir: el('cfgDataDir').value.trim(),
+      allow_register: el('cfgRegister').checked
     };
+    // PASV 范围 "min-max" 拆分为两个端口字段提交
+    var pasv = (el('cfgPasv').value || '').trim();
+    if(pasv){
+      var mm = pasv.split('-');
+      var min = parseInt(mm[0], 10), max = parseInt(mm[1] != null ? mm[1] : mm[0], 10);
+      if(min > 0 && max >= min){
+        body.pasv_min_port = min;
+        body.pasv_max_port = max;
+      }
+    }
     api('/api/config', { method:'PUT', body: JSON.stringify(body) }).then(function(x){
-      if(x.ok){ toast('系统配置已保存（FTP 热重载生效）', true); loadConfig(); } else toast(x.d.error||'保存失败', false);
+      if(x.ok){
+        toast(x.d.message || '设置已保存并即时生效', true);
+        loadSettings();
+        loadOverview();
+      } else toast(x.d.error||'保存失败', false);
     });
   }
 
@@ -652,8 +657,7 @@
       el('fileInput').onchange = function(e){ upload(e.target.files); e.target.value=''; };
       if(state.role === 'admin'){
         el('addUserBtn').onclick = function(){ openUserModal(''); };
-        el('saveBasicBtn').onclick = saveBasic;
-        el('saveCfgBtn').onclick = saveCfg;
+        el('saveSettingsBtn').onclick = saveSettings;
       }
       loadOverview();
     });

@@ -665,7 +665,8 @@ func usersHandler(store *repository.DBStore) gin.HandlerFunc {
 				"enabled":  u.Enabled,
 			})
 		}
-		c.JSON(http.StatusOK, out)
+		// 前端统一按 { users: [...] } 结构读取
+		c.JSON(http.StatusOK, gin.H{"users": out})
 	}
 }
 
