@@ -91,7 +91,7 @@
   function loadFiles(path){
     if(path != null) state.curPath = path;
     var p = state.curPath;
-    el('pathBar').textContent = p;
+    el('pathBar').textContent = '当前目录：' + p;
     el('upBtn').style.visibility = (p === '/' || p === '') ? 'hidden' : 'visible';
     renderBreadcrumb(p);
     api('/api/files?path=' + encodeURIComponent(p)).then(function(x){
@@ -108,12 +108,23 @@
                 '<button class="btn btn-ghost btn-sm" data-dl="'+esc(f.name)+'">下载</button>';
         }
         ops += ' <button class="btn btn-danger btn-sm" data-del="'+esc(f.name)+'">删除</button>';
-        return '<tr><td>'+(f.is_dir?'📁':'📄')+' '+esc(f.name)+'</td><td class="mono">'+fmtSize(f.size)+'</td><td class="mono">'+esc(f.mod_time||'')+'</td><td>'+ops+'</td></tr>';
+        var nameCell = '<span class="row-name'+(f.is_dir?' is-dir':'')+'" data-name="'+esc(f.name)+'" data-isdir="'+(f.is_dir?'1':'0')+'">'
+          +(f.is_dir?'📁 ':'📄 ')+esc(f.name)+(f.is_dir?' ›':'')+'</span>';
+        return '<tr><td>'+nameCell+'</td><td class="mono">'+fmtSize(f.size)+'</td><td class="mono">'+esc(f.mod_time||'')+'</td><td>'+ops+'</td></tr>';
       }).join('');
       qa('[data-open]', tb).forEach(function(b){ b.onclick = function(){ var np = p === '/' ? '/' + b.getAttribute('data-open') : p + '/' + b.getAttribute('data-open'); loadFiles(np); }; });
       qa('[data-prev]', tb).forEach(function(b){ b.onclick = function(){ preview(p, b.getAttribute('data-prev')); }; });
       qa('[data-dl]', tb).forEach(function(b){ b.onclick = function(){ download(p, b.getAttribute('data-dl')); }; });
       qa('[data-del]', tb).forEach(function(b){ b.onclick = function(){ delItem(p, b.getAttribute('data-del')); }; });
+      qa('.row-name', tb).forEach(function(n){
+        if(n.getAttribute('data-isdir') === '1'){
+          n.ondblclick = function(){
+            var name = n.getAttribute('data-name');
+            var np = p === '/' ? '/' + name : p + '/' + name;
+            loadFiles(np);
+          };
+        }
+      });
     });
   }
   // 面包屑导航：将路径拆为逐级可点击段
