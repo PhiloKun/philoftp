@@ -53,13 +53,20 @@ func envInt(key string, fallback int) int {
 	return fallback
 }
 
-// defaultConfigPath 返回默认配置文件路径。
-// 优先使用可执行文件同目录的 configs/config.json（安装包场景，目录可写），
-// 否则回退到用户目录 ~/.philoftp/configs/config.json（规避 Program Files 等无写权限目录）。
+// defaultConfigPath 返回默认配置文件路径，按优先级：
+// 1) 当前工作目录 configs/config.json（开发 / go run 场景）
+// 2) 可执行文件同目录 configs/config.json（Windows 安装包场景，目录可写）
+// 3) 用户目录 ~/.philoftp/configs/config.json（规避 Program Files 等无写权限目录）
 func defaultConfigPath() string {
-	exeDir := executableDir()
-	exeCandidate := filepath.Join(exeDir, "configs", "config.json")
-	// 若 exe 同目录存在 configs，且该目录可写，优先使用
+	// 开发 / go run：优先当前工作目录（os.Executable 在 go run 时指向临时目录）
+	if wd, err := os.Getwd(); err == nil {
+		cwdCandidate := filepath.Join(wd, "configs", "config.json")
+		if fileExists(cwdCandidate) {
+			return cwdCandidate
+		}
+	}
+	// 安装场景：可执行文件同目录
+	exeCandidate := filepath.Join(executableDir(), "configs", "config.json")
 	if fileExists(exeCandidate) && dirWritable(filepath.Dir(exeCandidate)) {
 		return exeCandidate
 	}
