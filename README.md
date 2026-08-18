@@ -11,6 +11,8 @@
 - 📦 **单文件分发**：编译为单个可执行文件，双击即可运行，无需安装运行时
 - 🔌 **被动模式**：内置 PASV 端口范围，适配内网/NAT 环境
 - 🔐 **可选 FTPS**：配置 TLS 证书后可启用加密传输
+- 🖥 **Windows 系统托盘**（GUI）：常驻后台，托盘菜单支持查看状态/启动/停止/打开 Web/打开日志/退出，不会闪退或弹出控制台
+- 📋 **日志文件**：运行日志实时写入 `~/.philoftp/logs/philoftp.log`，便于排查与追溯
 
 ## 快速开始
 
@@ -28,9 +30,12 @@
 Windows 用户可直接使用 `dist/windows/PhiloFTP-Setup.exe` 一键安装：
 
 - **标准 Windows 安装流程**：选择安装目录 → 创建桌面/开始菜单快捷方式 → 完成
+- 默认安装到**当前用户目录** `%LocalAppData%\PhiloFTP`（无需管理员权限，避免 Program Files 写权限导致启动失败）
 - 安装时自动**放行 Windows 防火墙**（FTP 控制端口 2121 + Web 管理端口 9090）
-- 安装完成后勾选「立即启动」即可运行，浏览器访问 `http://本机IP:9090`
-- 通过「开始菜单 → 卸载 PhiloFTP」或「设置 → 应用」可完整卸载（含防火墙规则、注册表、数据目录）
+- 安装完成后勾选「立即启动」，程序以**系统托盘图标**方式常驻后台，**不会闪退/关控制台**
+- **托盘右键菜单**：查看运行状态 / 打开 Web 管理页 / 启动服务 / 停止服务 / 打开日志目录 / 退出
+- 通过「开始菜单 → 卸载 PhiloFTP」或「设置 → 应用」可完整卸载
+- 数据与日志默认在 `%USERPROFILE%\.philoftp\`（配置/数据库、data、logs 日志文件）
 
 > 兼容 Windows 10 / 11（64 位）。
 
@@ -150,26 +155,37 @@ GOOS=darwin GOARCH=arm64 go build -o dist/macos/philoftp-darwin-arm64 .
 # macOS (Intel)
 GOOS=darwin GOARCH=amd64 go build -o dist/macos/philoftp-darwin-amd64 .
 
-# Windows
-GOOS=windows GOARCH=amd64 go build -o dist/windows/philoftp-windows-amd64.exe .
+# Windows（系统托盘版，需 CGO + mingw-w64）
+CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc \
+  go build -ldflags "-H=windowsgui" -o dist/windows/philoftp-windows-amd64.exe .
 
 # Linux
 GOOS=linux GOARCH=amd64 go build -o dist/linux/philoftp-linux-amd64 .
 ```
 
-或使用 Makefile 快速构建 Windows 安装包（需先 `brew install nsis`）：
+或使用 Makefile 快速构建 Windows 安装包（需先安装依赖）：
 
 ```bash
-make dist-windows        # 仅构建 Windows 二进制
-make installer-windows   # 构建二进制并生成 PhiloFTP-Setup.exe 安装包
+brew install nsis mingw-w64    # macOS 构建环境依赖
+pip3 install Pillow             # 生成图标
+make dist-windows              # 仅构建 Windows 托盘版二进制
+make installer-windows         # 构建二进制并生成 PhiloFTP-Setup.exe 安装包
 ```
+
+> Windows 二进制使用 `-H=windowsgui` 构建为 GUI 程序（无控制台窗口），配合系统托盘常驻后台。
 
 ## 项目结构
 
 ```
 philoftp/
 ├── main.go            # 程序入口、命令行参数解析、组装各层并启动
+├── app.go             # 服务管理器（FTP/Web 统一启停 + 状态）
+├── logging.go         # 日志初始化（文件 + 控制台双写）
+├── tray_windows.go    # Windows 系统托盘实现（状态/启动/停止/打开Web/退出）
+├── tray_other.go      # 非 Windows 控制台模式
+├── icon.go            # //go:embed assets/icon.png 托盘图标
 ├── webstatic.go       # //go:embed web —— 将前端静态资源嵌入单二进制
+├── assets/icon.png    # 应用图标
 ├── go.mod / go.sum
 ├── model/             # 领域模型
 │   └── user.go          # User 模型 + ResolveHome 路径辅助
@@ -194,9 +210,10 @@ philoftp/
 │   ├── config.json       # 服务器配置（端口、PASV 范围、FTPS 等）
 │   └── users.db          # SQLite 用户数据库（默认 admin/admin123，密码 bcrypt 哈希）
 ├── data/              # 文件存储根目录（运行时生成，含各用户 home）
+├── build/windows/     # Windows 安装包构建脚本（NSIS 模板 + 图标生成 + 说明）
 ├── dist/              # 各平台构建产物
 │   ├── macos/           # macOS 二进制 / zip / PhiloFTP.app
-│   ├── windows/         # Windows exe / zip
+│   ├── windows/         # Windows exe / zip / PhiloFTP-Setup.exe
 │   └── linux/           # Linux 二进制 / zip
 ├── Makefile           # 构建 / 运行 / 打包脚本
 └── .gitignore

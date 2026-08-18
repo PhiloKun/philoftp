@@ -23,8 +23,22 @@ import (
 	"github.com/philoftp/repository"
 )
 
-// StartWeb 启动 Web 管理端（Gin）。webFS 为嵌入的前端静态资源（web/ 目录），返回监听地址。
-func StartWeb(cfg *config.Config, store *repository.DBStore, webFS fs.FS) (string, error) {
+// WebServer 封装 Web 管理端（Gin），支持启动与优雅关闭。
+type WebServer struct {
+	auth *AuthManager
+	srv  *http.Server
+}
+
+// Shutdown 优雅关闭 Web 服务
+func (w *WebServer) Shutdown() error {
+	if w == nil || w.srv == nil {
+		return nil
+	}
+	return w.srv.Close()
+}
+
+// StartWeb 启动 Web 管理端（Gin）。webFS 为嵌入的前端静态资源（web/ 目录），返回可停止的句柄。
+func StartWeb(cfg *config.Config, store *repository.DBStore, webFS fs.FS) (*WebServer, error) {
 	auth := NewAuthManager(cfg, store)
 	appAuth = auth
 	r := gin.New()
@@ -70,14 +84,16 @@ func StartWeb(cfg *config.Config, store *repository.DBStore, webFS fs.FS) (strin
 	registerStatic(r, cfg, webFS, auth)
 
 	addr := fmt.Sprintf(":%d", cfg.WebPort)
+	srv := &http.Server{Addr: addr, Handler: r}
+	ws := &WebServer{auth: auth, srv: srv}
 	errCh := make(chan error, 1)
-	go func() { errCh <- r.Run(addr) }()
+	go func() { errCh <- srv.ListenAndServe() }()
 	// 等待至多 1.5s 确认是否成功绑定；绑定失败（如端口被占用）立即返回错误
 	select {
 	case err := <-errCh:
-		return addr, fmt.Errorf("Web 服务启动失败: %w", err)
+		return nil, fmt.Errorf("Web 服务启动失败: %w", err)
 	case <-time.After(1500 * time.Millisecond):
-		return addr, nil
+		return ws, nil
 	}
 }
 

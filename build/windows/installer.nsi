@@ -2,7 +2,7 @@
 ; 使用 NSIS + Modern UI 2，支持标准安装流程（选目录/快捷方式/卸载）
 
 Unicode True
-RequestExecutionLevel admin
+RequestExecutionLevel user
 SetCompressor /SOLID lzma
 
 !include "MUI2.nsh"
@@ -17,8 +17,9 @@ SetCompressor /SOLID lzma
 
 Name "${APP_NAME}"
 OutFile "PhiloFTP-Setup.exe"
-InstallDir "$PROGRAMFILES64\PhiloFTP"
-InstallDirRegKey HKLM "${REG_UNINSTALL}" "InstallLocation"
+; 默认安装到当前用户目录，避免 Program Files 写权限问题，无需管理员权限
+InstallDir "$LOCALAPPDATA\PhiloFTP"
+InstallDirRegKey HKCU "${REG_UNINSTALL}" "InstallLocation"
 VIProductVersion "1.0.0.0"
 VIAddVersionKey "ProductName" "PhiloFTP 内网 FTP 服务器"
 VIAddVersionKey "ProductVersion" "${APP_VERSION}"
@@ -60,18 +61,18 @@ Section "PhiloFTP" SecMain
   ; 说明文档
   File "README.txt"
 
-  ; 写入卸载信息到注册表
-  WriteRegStr HKLM "${REG_UNINSTALL}" "DisplayName" "${APP_NAME}"
-  WriteRegStr HKLM "${REG_UNINSTALL}" "DisplayVersion" "${APP_VERSION}"
-  WriteRegStr HKLM "${REG_UNINSTALL}" "DisplayIcon" "$INSTDIR\philoftp.ico"
-  WriteRegStr HKLM "${REG_UNINSTALL}" "Publisher" "${APP_PUBLISHER}"
-  WriteRegStr HKLM "${REG_UNINSTALL}" "InstallLocation" "$INSTDIR"
-  WriteRegStr HKLM "${REG_UNINSTALL}" "UninstallString" "$INSTDIR\Uninstall.exe"
-  WriteRegStr HKLM "${REG_UNINSTALL}" "QuietUninstallString" "$INSTDIR\Uninstall.exe /S"
-  WriteRegStr HKLM "${REG_UNINSTALL}" "URLInfoAbout" "${APP_WEB}"
-  WriteRegDWORD HKLM "${REG_UNINSTALL}" "NoModify" 1
-  WriteRegDWORD HKLM "${REG_UNINSTALL}" "NoRepair" 1
-  WriteRegDWORD HKLM "${REG_UNINSTALL}" "EstimatedSize" 51200
+  ; 写入卸载信息到注册表（当前用户）
+  WriteRegStr HKCU "${REG_UNINSTALL}" "DisplayName" "${APP_NAME}"
+  WriteRegStr HKCU "${REG_UNINSTALL}" "DisplayVersion" "${APP_VERSION}"
+  WriteRegStr HKCU "${REG_UNINSTALL}" "DisplayIcon" "$INSTDIR\philoftp.ico"
+  WriteRegStr HKCU "${REG_UNINSTALL}" "Publisher" "${APP_PUBLISHER}"
+  WriteRegStr HKCU "${REG_UNINSTALL}" "InstallLocation" "$INSTDIR"
+  WriteRegStr HKCU "${REG_UNINSTALL}" "UninstallString" "$INSTDIR\Uninstall.exe"
+  WriteRegStr HKCU "${REG_UNINSTALL}" "QuietUninstallString" "$INSTDIR\Uninstall.exe /S"
+  WriteRegStr HKCU "${REG_UNINSTALL}" "URLInfoAbout" "${APP_WEB}"
+  WriteRegDWORD HKCU "${REG_UNINSTALL}" "NoModify" 1
+  WriteRegDWORD HKCU "${REG_UNINSTALL}" "NoRepair" 1
+  WriteRegDWORD HKCU "${REG_UNINSTALL}" "EstimatedSize" 51200
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
   ; 桌面快捷方式（可选，MUI 无独立页，直接创建）
@@ -81,7 +82,7 @@ Section "PhiloFTP" SecMain
   CreateShortCut "$SMPROGRAMS\PhiloFTP\PhiloFTP.lnk" "$INSTDIR\philoftp.exe" "" "$INSTDIR\philoftp.ico"
   CreateShortCut "$SMPROGRAMS\PhiloFTP\卸载 PhiloFTP.lnk" "$INSTDIR\Uninstall.exe"
 
-  ; 防火墙放行（可选，通过 netsh 添加入站规则）
+  ; 防火墙放行（需管理员，普通用户静默失败不影响安装）
   ExecWait 'netsh advfirewall firewall add rule name="PhiloFTP" dir=in action=allow program="$INSTDIR\philoftp.exe" enable=yes'
 SectionEnd
 
@@ -101,8 +102,8 @@ Section "Uninstall"
   ExecWait 'netsh advfirewall firewall delete rule name="PhiloFTP"'
 
   ; 删除注册表卸载信息
-  DeleteRegKey HKLM "${REG_UNINSTALL}"
-  DeleteRegKey HKLM "Software\PhiloFTP"
+  DeleteRegKey HKCU "${REG_UNINSTALL}"
+  DeleteRegKey HKCU "Software\PhiloFTP"
 
   ; 删除文件
   Delete "$INSTDIR\philoftp.exe"

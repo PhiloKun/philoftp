@@ -19,14 +19,17 @@ dist-macos:
 	GOOS=darwin GOARCH=amd64 go build -o $(DIST)/macos/$(BINARY)-darwin-amd64 .
 	cd $(DIST)/macos && zip -r $(BINARY)-macos.zip $(BINARY)-darwin-arm64 $(BINARY)-darwin-amd64 PhiloFTP.app
 
-## dist-windows: 构建 Windows 二进制
+## dist-windows: 构建 Windows 二进制（系统托盘 GUI，需 mingw-w64：brew install mingw-w64）
 dist-windows:
-	GOOS=windows GOARCH=amd64 go build -o $(DIST)/windows/$(BINARY)-windows-amd64.exe .
+	CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc go build -ldflags "-H=windowsgui" -o $(DIST)/windows/$(BINARY)-windows-amd64.exe .
 	cd $(DIST)/windows && zip $(BINARY)-windows.zip $(BINARY)-windows-amd64.exe
 
-## installer-windows: 生成 Windows 安装程序（需 NSIS：brew install nsis）
+## installer-windows: 生成 Windows 安装程序（需 NSIS + mingw-w64 + python3+Pillow）
 installer-windows: dist-windows
+	python3 build/windows/gen_icon.py $(DIST)/windows
 	cp build/windows/installer.nsi $(DIST)/windows/installer.nsi
+	cp build/windows/README.txt $(DIST)/windows/README.txt
+	cp build/windows/LICENSE.txt $(DIST)/windows/LICENSE.txt
 	cd $(DIST)/windows && makensis installer.nsi
 
 ## dist-linux: 构建 Linux 二进制
