@@ -50,24 +50,16 @@
 
         <!-- 主体三列 -->
         <div class="ov-grid">
-          <!-- 左列：用户 / 文件分布 -->
+          <!-- 左列：用户分布（独占，更突出） -->
           <div class="ov-col">
-            <div class="card pad ov-card">
+            <div class="card pad ov-card ov-card-tall">
               <div class="lbl">👥 用户分布</div>
               <div id="ovUserBars" class="ov-bars"></div>
               <div class="ov-foot" id="ovUserFoot"></div>
             </div>
-            <div class="card pad ov-card">
-              <div class="lbl">🗂 文件类型分布 <span class="ov-hint" id="ovExtHint"></span></div>
-              <div id="ovExtBars" class="ov-bars ov-bars-mini"></div>
-            </div>
-            <div class="card pad ov-card">
-              <div class="lbl">📦 占用最大的文件 <span class="ov-hint">Top 5</span></div>
-              <div id="ovTopFiles" class="ov-top"></div>
-            </div>
           </div>
 
-          <!-- 中列：服务器 / 活动 -->
+          <!-- 中列：服务器 / 活动 / 最近更新 -->
           <div class="ov-col">
             <div class="card pad ov-card">
               <div class="lbl">🛰 服务器状态</div>
@@ -77,9 +69,14 @@
               <div class="lbl">🟢 活跃会话 <span class="ov-hint" id="ovLoggedHint">—</span></div>
               <div id="ovLogged" class="ov-sessions"></div>
             </div>
+            <div class="card pad ov-card ov-misc">
+              <div class="lbl">🕒 最近更新</div>
+              <div class="ov-big" id="ovLastUpdate">—</div>
+              <div class="ov-sub" id="ovLastSub">最近修改的文件</div>
+            </div>
           </div>
 
-          <!-- 右列：存储 / 负载 -->
+          <!-- 右列：存储 / 文件分布 / Top 文件 -->
           <div class="ov-col">
             <div class="card pad ov-card ov-storage">
               <div class="lbl">💾 存储使用率</div>
@@ -95,13 +92,12 @@
               <div class="ov-kv ov-kv-mini" id="ovStorage"></div>
             </div>
             <div class="card pad ov-card">
-              <div class="lbl">⚙ 运行时负载</div>
-              <div id="ovLoad" class="ov-kv"></div>
+              <div class="lbl">🗂 文件类型分布 <span class="ov-hint" id="ovExtHint"></span></div>
+              <div id="ovExtBars" class="ov-bars ov-bars-mini"></div>
             </div>
-            <div class="card pad ov-card ov-misc">
-              <div class="lbl">🕒 最近更新</div>
-              <div class="ov-big" id="ovLastUpdate">—</div>
-              <div class="ov-sub" id="ovLastSub">最近修改的文件</div>
+            <div class="card pad ov-card">
+              <div class="lbl">📦 占用最大的文件 <span class="ov-hint">Top 5</span></div>
+              <div id="ovTopFiles" class="ov-top"></div>
             </div>
           </div>
         </div>

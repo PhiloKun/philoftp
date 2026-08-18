@@ -275,14 +275,15 @@
   }
   function renderServer(s){
     var rows = [
-      ['FTP 控制端口',  s.ftp_port,  'cyan'],
-      ['Web 管理端口',  s.web_port,  'cyan'],
-      ['PASV 端口范围', s.pasv_ports,'cyan2'],
-      ['FTPS 加密',     s.ftps ? '已启用' : '未启用', s.ftps?'ok':'muted'],
-      ['数据目录',      s.data_dir,  'muted']
+      ['FTP 控制端口',  s.ftp_port,  'cyan',  false],
+      ['Web 管理端口',  s.web_port,  'cyan',  false],
+      ['PASV 端口范围', s.pasv_ports,'cyan2', false],
+      ['FTPS 加密',     s.ftps ? '已启用' : '未启用', s.ftps?'ok':'muted', false],
+      ['数据目录',      s.data_dir,  '',      true]
     ];
     el('ovServer').innerHTML = rows.map(function(r){
-      return '<div class="ov-kv-row"><span class="ov-kv-k">'+r[0]+'</span><span class="ov-kv-v mono tone-'+r[2]+'">'+esc(r[1])+'</span></div>';
+      var cls = 'ov-kv-v' + (r[3] ? ' path' : ' mono') + (r[2] ? ' tone-'+r[2] : '');
+      return '<div class="ov-kv-row"><span class="ov-kv-k">'+r[0]+'</span><span class="'+cls+'">'+esc(r[1])+'</span></div>';
     }).join('');
   }
   function renderLogged(u){
@@ -316,12 +317,18 @@
       ring.style.stroke = usedPct > 85 ? 'var(--err)' : usedPct > 60 ? 'var(--warn)' : 'var(--cyan)';
     }
     el('ovStorage').innerHTML = [
-      ['总容量',  fmtSize(s.total)],
-      ['已使用',  fmtSize(s.used)],
-      ['剩余',    fmtSize(s.free)],
-      ['数据目录', s.path || '—']
+      ['总容量',  fmtSize(s.total),       false],
+      ['已使用',  fmtSize(s.used),        false],
+      ['剩余',    fmtSize(s.free),        false],
+      ['数据目录', s.path || '—',         true]
     ].map(function(r){
-      return '<div class="ov-kv-row"><span class="ov-kv-k">'+r[0]+'</span><span class="ov-kv-v mono'+(r[0]==='剩余'?' tone-ok':'')+(r[0]==='已使用'?' tone-warn':'')+'">'+esc(r[1])+'</span></div>';
+      var isPath = r[2];
+      var cls = 'ov-kv-v' + (isPath ? ' path' : ' mono');
+      if(!isPath){
+        if(r[0]==='剩余') cls += ' tone-ok';
+        else if(r[0]==='已使用') cls += ' tone-warn';
+      }
+      return '<div class="ov-kv-row"><span class="ov-kv-k">'+r[0]+'</span><span class="'+cls+'">'+esc(r[1])+'</span></div>';
     }).join('');
   }
   function renderLoad(l){

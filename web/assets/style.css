@@ -235,13 +235,18 @@ td .mono,td.mono{font-size:13px;color:var(--haze);}
 @media (max-width:1100px){.ov-grid{grid-template-columns:1fr 1fr;}}
 @media (max-width:760px){.ov-grid{grid-template-columns:1fr;}}
 .ov-col{display:flex;flex-direction:column;gap:14px;}
-.ov-card{animation:ov-rise .5s cubic-bezier(.2,.7,.3,1) both;}
+.ov-card{animation:ov-rise .5s cubic-bezier(.2,.7,.3,1) both;display:flex;flex-direction:column;}
+.ov-card-tall{display:flex;flex-direction:column;}
+.ov-card-tall .lbl{flex:0 0 auto;}
 .ov-card .lbl{justify-content:space-between;}
 .ov-hint{font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0;}
 
 /* 条形图（用户/扩展名分布） */
 .ov-bars{display:flex;flex-direction:column;gap:11px;margin-top:4px;}
 .ov-bars-mini{gap:9px;}
+/* 左列用户分布卡：在卡片高度拉伸时让 5 条条形图均匀铺满 */
+.ov-card-tall .ov-bars{height:100%;justify-content:space-evenly;gap:14px;}
+.ov-card-tall .ov-bar{flex:1;justify-content:center;}
 .ov-bar{display:flex;flex-direction:column;gap:5px;}
 .ov-bar.mini .ov-bar-lbl{font-size:12px;}
 .ov-bar-lbl{display:flex;justify-content:space-between;font-size:13px;color:var(--haze);font-weight:500;}
@@ -262,10 +267,12 @@ td .mono,td.mono{font-size:13px;color:var(--haze);}
 /* 键值表 */
 .ov-kv{display:flex;flex-direction:column;gap:0;margin-top:4px;}
 .ov-kv-mini{font-size:12.5px;}
-.ov-kv-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(30,42,64,.5);font-size:13px;}
+.ov-kv-row{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:9px 0;border-bottom:1px solid rgba(30,42,64,.5);font-size:13px;}
 .ov-kv-row:last-child{border-bottom:none;}
-.ov-kv-k{color:var(--haze);}
-.ov-kv-v{color:var(--txt);text-align:right;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ov-kv-k{color:var(--haze);flex:0 0 auto;}
+.ov-kv-v{color:var(--txt);text-align:right;overflow-wrap:anywhere;word-break:break-all;line-height:1.5;}
+/* 路径类内容用等宽字体，保持可读且允许换行 */
+.ov-kv-v.path{font-family:var(--font-mono);font-size:12px;color:var(--cyan2);text-align:right;line-height:1.55;letter-spacing:.01em;}
 .tone-cyan{color:var(--cyan)!important;}.tone-cyan2{color:var(--cyan2)!important;}.tone-ok{color:var(--ok)!important;}.tone-warn{color:var(--warn)!important;}.tone-err{color:var(--err)!important;}.tone-muted{color:var(--muted)!important;}
 
 /* 活跃会话 */
