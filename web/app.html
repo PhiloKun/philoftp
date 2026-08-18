@@ -38,6 +38,8 @@
           <div class="ov-quick">
             <button class="btn btn-ghost btn-sm" data-go="files">📂 文件管理</button>
             <button class="btn btn-ghost btn-sm" data-go="users">👥 用户管理</button>
+            <button class="btn btn-ghost btn-sm" id="ovAddCard" title="添加一张自定义备注卡片">＋ 添加卡片</button>
+            <button class="btn btn-ghost btn-sm" id="ovSettingsBtn" title="管理卡片：设置是否可拖动、显示/隐藏、删除">⚙ 卡片设置</button>
             <button class="btn btn-ghost btn-sm" id="ovResetLayout" title="恢复默认卡片布局">↺ 重置布局</button>
           </div>
         </div>
@@ -185,6 +187,46 @@
       <button class="btn btn-ghost btn-md" id="promptCancel">取消</button>
       <button class="btn btn-primary btn-md" id="promptOk">创建</button>
     </div>
+  </div>
+</div>
+<div class="overlay" id="ovAddCard">
+  <div class="modal glass confirm-box prompt-box" style="width:440px">
+    <div class="confirm-ico prompt-ico" id="ovAddIco">📋</div>
+    <h3 id="ovAddTitle">添加卡片</h3>
+    <div class="prompt-msg" id="ovAddMsg">创建一张自定义备注卡片（内容仅保存在本机浏览器）</div>
+    <div class="field" style="margin-bottom:14px">
+      <div class="lbl" style="font-size:12px;margin-bottom:6px">卡片标题</div>
+      <input class="input" id="ovAddTitleInput" autocomplete="off" maxlength="40" placeholder="例如：团队待办">
+    </div>
+    <div class="field" style="margin-bottom:14px">
+      <div class="lbl" style="font-size:12px;margin-bottom:6px">内容（多行文本）</div>
+      <textarea class="input ov-add-textarea" id="ovAddContent" rows="5" maxlength="500" placeholder="在此输入备注内容…"></textarea>
+      <div class="hint" id="ovAddHint" style="opacity:0"></div>
+    </div>
+    <div class="field" style="margin-bottom:14px">
+      <div class="lbl" style="font-size:12px;margin-bottom:6px">放置到</div>
+      <select class="input" id="ovAddSlot">
+        <option value="ovKpiMain">主 KPI 行</option>
+        <option value="ovKpiSub">副 KPI 行</option>
+        <option value="ovCol0">左列（用户分布）</option>
+        <option value="ovCol1">中列（服务器）</option>
+        <option value="ovCol2">右列（存储）</option>
+      </select>
+    </div>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost btn-md" id="ovAddCancel">取消</button>
+      <button class="btn btn-primary btn-md" id="ovAddOk">添加</button>
+    </div>
+  </div>
+</div>
+<div class="overlay" id="ovSettings">
+  <div class="modal glass" style="width:520px">
+    <div class="ov-set-head">
+      <h3 style="margin:0">⚙ 卡片设置</h3>
+      <button class="btn btn-ghost btn-sm" id="ovSettingsClose">✕ 关闭</button>
+    </div>
+    <div class="ov-set-tip">拖动开关：开启后才能被拖拽摆放；显示开关：控制该卡片是否在概览页显示；自定义卡片可删除。</div>
+    <div class="ov-set-list" id="ovSettingsList"></div>
   </div>
 </div>
 <div class="overlay" id="preview"><div class="glass preview-box">

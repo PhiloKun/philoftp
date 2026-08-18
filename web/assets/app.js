@@ -228,8 +228,10 @@
     });
 
     // 启用概览页卡片拖拽自定义布局
+    renderCustomCards();
     initOverviewDrag();
     applyOverviewLayout();
+    applyCardVisibility();
 
     // 重置布局按钮
     var resetBtn = el('ovResetLayout');
@@ -240,6 +242,85 @@
         applyOverviewLayout(); // 无保存布局时自然恢复默认
       };
     }
+
+    // 添加卡片按钮
+    var addBtn = el('ovAddCard');
+    if(addBtn) addBtn.onclick = openAddCard;
+
+    // 卡片设置按钮
+    var setBtn = el('ovSettingsBtn');
+    if(setBtn) setBtn.onclick = openOverviewSettings;
+  }
+
+  // ===== 卡片配置模型（每张卡的 draggable / enabled / slot）=====
+  function getCardConfig(){
+    try {
+      return JSON.parse(localStorage.getItem('philoftp-overview-cards') || '{}');
+    } catch(e){ return {}; }
+  }
+  function setCardConfig(cfg){
+    try { localStorage.setItem('philoftp-overview-cards', JSON.stringify(cfg)); } catch(e){}
+  }
+  function cardConf(id){
+    var cfg = getCardConfig();
+    var c = cfg[id] || {};
+    return { draggable: c.draggable !== false, enabled: c.enabled !== false, custom: !!c.custom };
+  }
+  function setCardConf(id, patch){
+    var cfg = getCardConfig();
+    cfg[id] = Object.assign({}, cfg[id] || {}, patch);
+    setCardConfig(cfg);
+  }
+  // 内置卡片名 → 中文显示名
+  var BUILTIN_CARD_NAMES = {
+    'kpi-users':'用户总数','kpi-sessions':'活跃会话','kpi-files':'文件/目录','kpi-storage':'存储使用',
+    'kpi-admins':'管理员数','kpi-datadir':'数据目录','kpi-go':'Go 运行时',
+    'user-dist':'用户分布','server-status':'服务器状态','active-sessions':'活跃会话列表',
+    'last-update':'最近更新','storage-ring':'存储使用率','file-ext':'文件类型分布','top-files':'Top 5 大文件'
+  };
+  // 自定义卡片
+  function getCustomCards(){
+    try { return JSON.parse(localStorage.getItem('philoftp-overview-custom') || '{}'); }
+    catch(e){ return {}; }
+  }
+  function setCustomCards(map){
+    try { localStorage.setItem('philoftp-overview-custom', JSON.stringify(map)); } catch(e){}
+  }
+  function renderCustomCards(){
+    var custom = getCustomCards();
+    Object.keys(custom).forEach(function(id){
+      var c = custom[id];
+      var card = findOvCard(id);
+      if(card){
+        var content = card.querySelector('.ov-custom-content');
+        if(content) content.textContent = c.content || '';
+        var title = card.querySelector('.ov-custom-title');
+        if(title) title.textContent = c.title || '备注';
+        return;
+      }
+      // 尚未渲染 → 创建 DOM 并放入对应容器
+      var div = document.createElement('div');
+      div.className = 'card pad ov-card ov-custom';
+      div.setAttribute('data-ov-card-id', id);
+      div.setAttribute('draggable', 'true');
+      div.innerHTML =
+        '<div class="lbl">📋 <span class="ov-custom-title">'+esc(c.title||'备注')+'</span></div>'+
+        '<div class="ov-custom-content">'+esc(c.content||'')+'</div>';
+      var slot = c.slot || 'ovCol2';
+      var container = el(slot) || el('ovCol2');
+      container.appendChild(div);
+    });
+  }
+  // 依据 draggable 配置设定卡片是否可拖
+  function applyCardVisibility(){
+    qa('[data-ov-card-id]').forEach(function(card){
+      var id = card.getAttribute('data-ov-card-id');
+      var conf = cardConf(id);
+      card.style.display = conf.enabled ? '' : 'none';
+      card.setAttribute('draggable', conf.draggable ? 'true' : 'false');
+      var handle = card.querySelector('.ov-drag-handle');
+      if(handle) handle.style.display = conf.draggable ? '' : 'none';
+    });
   }
 
   // ===== 概览页卡片拖拽布局 =====
@@ -337,11 +418,32 @@
   function saveOverviewLayout(){
     try {
       var layout = {};
-      ['ovKpiMain','ovKpiSub','ovCol0','ovCol1','ovCol2'].forEach(function(id){
+      var containers = ['ovKpiMain','ovKpiSub','ovCol0','ovCol1','ovCol2'];
+      containers.forEach(function(id){
         var c = el(id);
         if(!c) return;
         layout[id] = qa('[data-ov-card-id]', c).map(function(n){ return n.getAttribute('data-ov-card-id'); });
       });
+      // 智能布局保护：三列主体（col0/col1/col2）不允许为空，空时从其他列移入第一张卡
+      var cols = ['ovCol0','ovCol1','ovCol2'];
+      for(var i=0;i<cols.length;i++){
+        var colId = cols[i];
+        if(layout[colId] && layout[colId].length) continue;
+        // 该列空 → 从有卡的列借第一张卡
+        var donor = cols.filter(function(x){ return layout[x] && layout[x].length; })[0];
+        if(donor){
+          var take = layout[donor].shift();
+          layout[colId] = [take];
+        }
+      }
+      // 同步自定义卡片的 slot
+      var custom = getCustomCards();
+      Object.keys(custom).forEach(function(id){
+        for(var j=0;j<containers.length;j++){
+          if(layout[containers[j]].indexOf(id) !== -1){ custom[id].slot = containers[j]; break; }
+        }
+      });
+      setCustomCards(custom);
       localStorage.setItem('philoftp-overview-layout', JSON.stringify(layout));
     } catch(err){}
   }
@@ -369,6 +471,139 @@
       qa('[data-ov-card-id="'+id+'"]', c).forEach(function(n){ found = n; });
     });
     return found;
+  }
+
+  // ===== 添加自定义卡片弹窗 =====
+  function openAddCard(){
+    el('ovAddTitleInput').value = '';
+    el('ovAddContent').value = '';
+    el('ovAddHint').style.opacity = '0';
+    el('ovAddSlot').value = 'ovCol2';
+    el('ovAddCard').classList.add('show');
+    var done = false;
+    function close(){ if(done) return; done = true; el('ovAddCard').classList.remove('show'); cleanup(); }
+    function submit(){
+      if(done) return;
+      var title = el('ovAddTitleInput').value.trim();
+      var content = el('ovAddContent').value;
+      if(!title){ el('ovAddHint').textContent = '请填写卡片标题'; el('ovAddHint').style.opacity = '1'; el('ovAddTitleInput').focus(); return; }
+      done = true;
+      el('ovAddCard').classList.remove('show');
+      cleanup();
+      var id = 'custom-' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+      var slot = el('ovAddSlot').value;
+      var custom = getCustomCards();
+      custom[id] = { title: title, content: content, slot: slot };
+      setCustomCards(custom);
+      setCardConf(id, { draggable: true, enabled: true, custom: true });
+      // 立即渲染到对应容器
+      renderCustomCards();
+      initOverviewDrag();
+      applyCardVisibility();
+      saveOverviewLayout();
+      toast('已添加卡片：' + title, true);
+      loadOverview();
+    }
+    function cleanup(){
+      el('ovAddCancel').removeEventListener('click', close);
+      el('ovAddOk').removeEventListener('click', submit);
+      el('ovAddCard').removeEventListener('click', overlayClick);
+      el('ovAddTitleInput').removeEventListener('keydown', onKey);
+    }
+    function overlayClick(e){ if(e.target === el('ovAddCard')) close(); }
+    function onKey(e){ if(e.key === 'Escape') close(); }
+    el('ovAddCancel').addEventListener('click', close);
+    el('ovAddOk').addEventListener('click', submit);
+    el('ovAddCard').addEventListener('click', overlayClick);
+    el('ovAddTitleInput').addEventListener('keydown', onKey);
+    setTimeout(function(){ el('ovAddTitleInput').focus(); }, 30);
+  }
+
+  // ===== 卡片设置弹窗 =====
+  function openOverviewSettings(){
+    var listEl = el('ovSettingsList');
+    listEl.innerHTML = '';
+    var rows = [];
+    // 内置 KPI 卡
+    var kpiIds = ['kpi-users','kpi-sessions','kpi-files','kpi-storage','kpi-admins','kpi-datadir','kpi-go'];
+    kpiIds.forEach(function(id){
+      rows.push({ id:id, name:BUILTIN_CARD_NAMES[id], custom:false });
+    });
+    // 内置主体卡
+    var bodyIds = ['user-dist','server-status','active-sessions','last-update','storage-ring','file-ext','top-files'];
+    bodyIds.forEach(function(id){
+      rows.push({ id:id, name:BUILTIN_CARD_NAMES[id], custom:false });
+    });
+    // 自定义卡
+    var custom = getCustomCards();
+    Object.keys(custom).forEach(function(id){
+      rows.push({ id:id, name:custom[id].title || '备注', custom:true });
+    });
+
+    if(!rows.length){
+      listEl.innerHTML = '<div class="ov-empty">暂无卡片</div>';
+    }
+    rows.forEach(function(r){
+      var conf = cardConf(r.id);
+      var slotName = slotLabel(getCustomSlot(r.id));
+      var row = document.createElement('div');
+      row.className = 'ov-set-row';
+      row.innerHTML =
+        '<div class="ov-set-info"><b>'+esc(r.name)+'</b>'+
+        '<span class="ov-set-sub">'+slotName+(r.custom?' · 自定义':'')+'</span></div>'+
+        '<div class="ov-set-ctrl">'+
+          '<label class="ov-set-switch-wrap" title="开启后该卡片可被拖拽摆放">'+
+            '<span>拖动</span><input type="checkbox" class="ov-set-switch" data-kind="drag" data-id="'+r.id+'"'+(conf.draggable?' checked':'')+'>'+
+          '</label>'+
+          '<label class="ov-set-switch-wrap" title="开启后该卡片在概览页显示">'+
+            '<span>显示</span><input type="checkbox" class="ov-set-switch" data-kind="show" data-id="'+r.id+'"'+(conf.enabled?' checked':'')+'>'+
+          '</label>'+
+          (r.custom ? '<button class="btn btn-ghost btn-sm ov-set-del" data-id="'+r.id+'" title="删除此自定义卡片">🗑</button>' : '')+
+        '</div>';
+      listEl.appendChild(row);
+    });
+
+    // 事件：拖动/显示开关
+    qa('.ov-set-switch', listEl).forEach(function(sw){
+      sw.onchange = function(){
+        var id = sw.getAttribute('data-id');
+        var kind = sw.getAttribute('data-kind');
+        if(kind === 'drag'){ setCardConf(id, { draggable: sw.checked }); }
+        else { setCardConf(id, { enabled: sw.checked }); }
+        applyCardVisibility();
+      };
+    });
+    // 事件：删除自定义卡
+    qa('.ov-set-del', listEl).forEach(function(btn){
+      btn.onclick = function(){
+        var id = btn.getAttribute('data-id');
+        confirmDialog({
+          title:'删除卡片',
+          message:'确定删除自定义卡片「<b style="color:var(--cyan)">'+esc((getCustomCards()[id]||{}).title||'')+'</b>」吗？此操作不可恢复。',
+          okText:'删除',
+          onOk:function(){
+            var custom = getCustomCards(); delete custom[id]; setCustomCards(custom);
+            var cfg = getCardConfig(); delete cfg[id]; setCardConfig(cfg);
+            var card = findOvCard(id); if(card && card.parentNode) card.parentNode.removeChild(card);
+            saveOverviewLayout();
+            openOverviewSettings();
+            toast('已删除卡片', true);
+          }
+        });
+      };
+    });
+
+    el('ovSettings').classList.add('show');
+    el('ovSettingsClose').onclick = function(){ el('ovSettings').classList.remove('show'); };
+    el('ovSettings').onclick = function(e){ if(e.target === el('ovSettings')) el('ovSettings').classList.remove('show'); };
+  }
+  function getCustomSlot(id){
+    var custom = getCustomCards()[id];
+    return custom && custom.slot ? custom.slot : '';
+  }
+  function slotLabel(id){
+    var m = { ovKpiMain:'主 KPI 行', ovKpiSub:'副 KPI 行', ovCol0:'左列', ovCol1:'中列', ovCol2:'右列' };
+    return m[id] || '概览';
   }
 
   function kpiCell(id, lbl, big, sub, tone, go){

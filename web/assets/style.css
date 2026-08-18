@@ -326,6 +326,41 @@ td .mono,td.mono{font-size:13px;color:var(--haze);}
 #ovResetLayout{transition:.18s;}
 #ovResetLayout:hover{color:var(--cyan);background:rgba(34,211,238,.1);}
 
+/* 概览页顶部操作按钮 */
+#ovAddCard,#ovSettingsBtn{transition:.18s;}
+#ovAddCard:hover,#ovSettingsBtn:hover{color:var(--cyan);background:rgba(34,211,238,.1);}
+
+/* 自定义卡片 */
+.ov-custom{min-height:120px;border-left:3px solid rgba(34,211,238,.5);}
+.ov-custom .ov-custom-title{color:var(--txt);}
+.ov-custom-content{font-size:13px;line-height:1.7;color:var(--haze);white-space:pre-wrap;word-break:break-word;padding-top:4px;}
+.ov-custom .lbl{justify-content:flex-start;margin-bottom:8px;}
+
+/* 添加卡片弹窗 */
+.ov-add-textarea{resize:vertical;min-height:110px;font-family:var(--font-mono);font-size:13px;line-height:1.6;}
+.ov-add-textarea:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 0 3px rgba(34,211,238,.15);}
+
+/* 卡片设置弹窗 */
+.ov-set-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--line);}
+.ov-set-tip{font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6;padding:0 2px;}
+.ov-set-list{max-height:56vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px;}
+.ov-set-list::-webkit-scrollbar{width:8px;}
+.ov-set-list::-webkit-scrollbar-thumb{background:rgba(34,211,238,.2);border-radius:4px;}
+.ov-set-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;
+  background:rgba(7,10,18,.35);border:1px solid var(--line);border-radius:12px;transition:.15s;}
+.ov-set-row:hover{border-color:rgba(34,211,238,.4);background:rgba(34,211,238,.04);}
+.ov-set-info{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.ov-set-info b{font-size:14px;color:var(--txt);}
+.ov-set-sub{font-size:12px;color:var(--muted);}
+.ov-set-ctrl{display:flex;align-items:center;gap:14px;flex-shrink:0;}
+.ov-set-switch-wrap{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--haze);cursor:pointer;}
+.ov-set-switch{appearance:none;width:34px;height:18px;border-radius:9px;background:rgba(30,42,64,.8);position:relative;cursor:pointer;transition:.18s;flex-shrink:0;}
+.ov-set-switch::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--muted);transition:.18s;}
+.ov-set-switch:checked{background:rgba(34,211,238,.35);}
+.ov-set-switch:checked::after{left:18px;background:var(--cyan);box-shadow:0 0 8px rgba(34,211,238,.5);}
+.ov-set-del{color:var(--err);transition:.15s;}
+.ov-set-del:hover{background:rgba(251,113,133,.12);}
+
 @media (prefers-reduced-motion: reduce){
   .ov-dot,.ov-bar-fill,.ov-kpi-cell,.ov-card{animation:none!important;}
   .ov-ring-fg{transition:none!important;}
