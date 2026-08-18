@@ -9,9 +9,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"philoftp/config"
-	"philoftp/model"
-	"philoftp/repository"
+	"github.com/philoftp/config"
+	"github.com/philoftp/model"
+	"github.com/philoftp/repository"
 )
 
 const sessionCookie = "philoftp_sid"

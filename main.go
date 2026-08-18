@@ -7,11 +7,11 @@ import (
 	"net"
 	"os"
 
-	"philoftp/config"
-	"philoftp/handler"
-	"philoftp/model"
-	"philoftp/repository"
-	"philoftp/service"
+	"github.com/philoftp/config"
+	"github.com/philoftp/handler"
+	"github.com/philoftp/model"
+	"github.com/philoftp/repository"
+	"github.com/philoftp/service"
 )
 
 func main() {

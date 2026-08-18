@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"philoftp/config"
+	"github.com/philoftp/config"
 )
 
 // servePage 从嵌入的前端文件系统（web/）读取并返回对应 HTML 页面。

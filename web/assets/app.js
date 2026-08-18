@@ -118,7 +118,6 @@
     { id:'files', ico:'🗂', label:'文件管理', admin:false },
     { id:'users', ico:'👥', label:'用户管理', admin:true },
     { id:'settings', ico:'⚙', label:'系统设置', admin:true },
-    { id:'system', ico:'📊', label:'系统信息', admin:false },
     { id:'about', ico:'ℹ', label:'关于', admin:false }
   ];
   function buildNav(){
@@ -138,14 +137,13 @@
   function showView(id){
     qa('.view').forEach(function(v){ v.classList.toggle('active', v.id === 'v-'+id); });
     qa('.nav-item').forEach(function(n){ n.classList.toggle('active', n.getAttribute('data-view') === id); });
-    var labels = { overview:'概览', files:'文件管理', users:'用户管理', settings:'系统设置', system:'系统信息', about:'关于' };
+    var labels = { overview:'概览', files:'文件管理', users:'用户管理', settings:'系统设置', about:'关于' };
     el('title').textContent = labels[id] || '控制台';
     el('crumb').textContent = '控制台 · ' + (labels[id] || '');
     if(id==='overview') loadOverview();
     if(id==='files') loadFiles();
     if(id==='users') loadUsers();
     if(id==='settings') loadSettings();
-    if(id==='system') loadSystem();
     if(id==='about') loadAbout();
   }
 
@@ -192,14 +190,14 @@
       kpiCell('kpi-users',   '👥 用户总数', d.users.total, '启用 ' + d.users.enabled + ' · 禁用 ' + d.users.disabled, 'cyan', 'users'),
       kpiCell('kpi-sessions','🟢 活跃会话', d.users.logged_in, '最近登录用户数', 'ok', 'users'),
       kpiCell('kpi-files',   '🗂 文件 / 目录', (d.files.file_count||0) + ' / ' + (d.files.dir_count||0), fmtSize(fileSize), 'cyan2', 'files'),
-      kpiCell('kpi-storage', '💾 存储使用', (usedPct||0).toFixed(1) + '%', d.storage.total? (fmtSize(d.storage.used)+' / '+fmtSize(d.storage.total)) : '—', usedPct>85?'err':(usedPct>60?'warn':'ok'), 'system')
+      kpiCell('kpi-storage', '💾 存储使用', (usedPct||0).toFixed(1) + '%', d.storage.total? (fmtSize(d.storage.used)+' / '+fmtSize(d.storage.total)) : '—', usedPct>85?'err':(usedPct>60?'warn':'ok'))
     ].join('');
 
     // 副 KPI 3 卡
     el('ovKpiSub').innerHTML = [
       kpiCell('kpi-admins',  '🛡 管理员', d.users.admins, '普通用户 ' + d.users.normal, 'cyan'),
       kpiCell('kpi-datadir', '📁 数据目录', d.server.data_dir || '—', 'FTP 数据根', 'cyan2', 'files'),
-      kpiCell('kpi-go',      '⚙ Go 运行时', (d.load.go_version||'').replace('go',''), '协程 ' + d.load.goroutines, 'ok', 'system')
+      kpiCell('kpi-go',      '⚙ Go 运行时', (d.load.go_version||'').replace('go',''), '协程 ' + d.load.goroutines, 'ok')
     ].join('');
 
     // 用户分布
@@ -754,24 +752,7 @@
     });
   }
 
-  // ===== 系统信息 / 关于 =====
-  function loadSystem(){
-    api('/api/system').then(function(x){
-      if(!x.ok){ toast(x.d.error||'加载失败', false); return; }
-      var d = x.d, rows = '';
-      function row(k,v){ return '<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid rgba(30,42,64,.6)"><span style="color:var(--haze)">'+k+'</span><span class="mono">'+esc(v)+'</span></div>'; }
-      rows += row('版本', d.version||'-');
-      rows += row('Go 版本', d.go_version||'-');
-      rows += row('Git 提交', d.git_commit||'-');
-      rows += row('运行平台', d.platform||'-');
-      rows += row('运行时长', d.uptime||'-');
-      rows += row('FTP 端口', d.ftp_port||'-');
-      rows += row('Web 端口', d.web_port||'-');
-      rows += row('FTP 连接数', d.ftp_conns||0);
-      rows += row('登录用户数', d.logged_in||0);
-      el('sysInfo').innerHTML = rows;
-    });
-  }
+  // ===== 关于 =====
   function loadAbout(){
     api('/api/about').then(function(x){
       var d = x.ok ? x.d : {};

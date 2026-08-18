@@ -1,4 +1,4 @@
-module philoftp
+module github.com/philoftp
 
 go 1.26
 

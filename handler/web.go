@@ -19,9 +19,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"philoftp/config"
-	"philoftp/model"
-	"philoftp/repository"
+	"github.com/philoftp/config"
+	"github.com/philoftp/model"
+	"github.com/philoftp/repository"
 )
 
 // StartWeb 启动 Web 管理端（Gin）。webFS 为嵌入的前端静态资源（web/ 目录），返回监听地址。
@@ -58,10 +58,9 @@ func StartWeb(cfg *config.Config, store *repository.DBStore, webFS fs.FS) (strin
 		})
 	})
 
-	// 管理员专属接口（用户管理 / 系统配置 / 系统信息）
+	// 管理员专属接口（用户管理 / 系统配置）
 	admin := r.Group("")
 	admin.Use(auth.RequireAuth(), auth.RequireRole(model.RoleAdmin))
-	admin.GET("/api/system", systemHandler)
 	admin.GET("/api/config", func(c *gin.Context) { configHandler(c, cfg) })
 	admin.PUT("/api/config", func(c *gin.Context) { updateConfigHandler(c, cfg) })
 	admin.GET("/api/users", usersHandler(store))

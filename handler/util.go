@@ -5,15 +5,13 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
-	"time"
 	"unicode"
 
 	"github.com/gin-gonic/gin"
 
-	"philoftp/config"
-	"philoftp/model"
+	"github.com/philoftp/config"
+	"github.com/philoftp/model"
 )
 
 // appAuth 保存当前鉴权管理器实例，供辅助函数取登录用户
@@ -100,11 +98,3 @@ func isASCII(s string) bool {
 	return true
 }
 
-// systemHandler 返回运行时系统信息
-func systemHandler(c *gin.Context) {
-	c.JSON(200, gin.H{
-		"go_version": runtime.Version(),
-		"goroutines": runtime.NumGoroutine(),
-		"uptime":     time.Since(config.StartTime).Round(time.Second).String(),
-	})
-}
