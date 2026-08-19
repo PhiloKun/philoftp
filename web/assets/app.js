@@ -86,7 +86,7 @@
     function submit(){
       if(done) return;
       var v = input.value;
-      if(opts.validate && !opts.validate(v)) return;
+      if(opts.validate && opts.validate(v)) return;
       done = true;
       el('prompt').classList.remove('show');
       cleanup();
@@ -1121,8 +1121,6 @@
   }
 
   function renderSearchResults(items, q, truncated){
-    selected = {};
-    updateBatchBar();
     // 面包屑改为搜索提示，点击返回根目录
     var bc = el('breadcrumb');
     bc.innerHTML = '<span class="crumb-seg" data-go="/">根目录</span><span class="crumb-sep">/</span><span class="crumb-seg" style="color:var(--cyan)">搜索：'+esc(q)+(truncated?'（结果过多，已截断）':'')+'</span>';
