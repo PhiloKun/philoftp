@@ -131,6 +131,11 @@
           <button class="btn btn-ghost btn-sm" id="refreshBtn">⟳ 刷新</button>
           <label class="btn btn-primary btn-sm" style="margin:0">⬆ 上传<input id="fileInput" type="file" multiple style="display:none"></label>
           <button class="btn btn-ghost btn-sm" id="trashBtn" title="查看回收站">🗑 回收站</button>
+          <span class="toolbar-spacer"></span>
+          <div class="search-box">
+            <input class="input input-sm" id="searchInput" placeholder="🔍 搜索文件名…" autocomplete="off">
+            <button class="btn btn-ghost btn-sm" id="searchBtn">搜索</button>
+          </div>
         </div>
         <div class="breadcrumb" id="breadcrumb"></div>
         <div class="batch-bar" id="batchBar" style="display:none">
@@ -138,11 +143,32 @@
           <button class="btn btn-ghost btn-xs" id="selInvert">反选</button>
           <button class="btn btn-ghost btn-xs" id="selClear">取消选择</button>
           <span class="batch-count" id="selCount">已选 0 项</span>
+          <button class="btn btn-primary btn-xs" id="batchDlBtn">⬇ 下载</button>
+          <button class="btn btn-ghost btn-xs" id="batchZipBtn">🗜 打包下载</button>
+          <button class="btn btn-ghost btn-xs" id="batchMoveBtn">✂ 移动到…</button>
           <button class="btn btn-danger btn-xs" id="batchDelBtn">🗑 删除选中</button>
         </div>
         <div class="table-wrap"><table><thead><tr><th style="width:34px"><input type="checkbox" id="selAllHead"></th><th>名称</th><th>大小</th><th>修改时间</th><th style="width:160px">操作</th></tr></thead><tbody id="fileList"></tbody></table></div>
         <div class="empty" id="fileEmpty" style="display:none">此目录为空</div>
       </section>
+
+      <!-- 搜索结果 -->
+      <div class="overlay" id="searchModal">
+        <div class="modal" style="max-width:680px;padding:18px">
+          <div class="modal-head" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <span id="searchTitle" style="font-size:16px;font-weight:600">搜索结果</span>
+            <button class="btn btn-ghost btn-xs" id="searchClose">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="search-meta" id="searchMeta" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>
+            <div class="table-wrap" style="max-height:50vh;overflow:auto">
+              <table><thead><tr><th>名称</th><th>所在目录</th><th>大小</th><th style="width:120px">操作</th></tr></thead>
+              <tbody id="searchList"></tbody></table>
+            </div>
+            <div class="empty" id="searchEmpty" style="display:none">未找到匹配的文件</div>
+          </div>
+        </div>
+      </div>
 
       <!-- 用户管理 -->
       <section class="view" id="v-users" data-admin>

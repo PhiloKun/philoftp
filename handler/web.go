@@ -74,6 +74,12 @@ func StartWeb(cfg *config.Config, store *repository.DBStore, webFS fs.FS) (*WebS
 	authed.POST("/api/mkdir", mkdirHandler(cfg, store))
 	authed.POST("/api/upload", uploadHandler(cfg, store))
 	authed.GET("/api/download", downloadHandler(cfg, store))
+	// 文件管理增强：重命名 / 批量移动 / 搜索 / ZIP 打包下载 / 解压
+	authed.POST("/api/rename", renameHandler(cfg))
+	authed.POST("/api/move", moveHandler(cfg))
+	authed.GET("/api/search", searchHandler(cfg))
+	authed.GET("/api/download/zip", downloadZipHandler(cfg))
+	authed.POST("/api/unzip", unzipHandler(cfg))
 	// 回收站
 	authed.GET("/api/trash", trashHandler(cfg))
 	authed.POST("/api/trash/restore", trashRestoreHandler(cfg))

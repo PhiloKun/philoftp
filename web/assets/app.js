@@ -808,12 +808,17 @@
       var items = x.d.items || [];
       if(!items.length){ el('fileEmpty').style.display = 'block'; tb.innerHTML = ''; return; }
       tb.innerHTML = items.map(function(f){
+        var fp = fullPath(p, f.name);
         var ops;
         if(f.is_dir){
           ops = '<button class="btn btn-ghost btn-sm" data-open="'+esc(f.name)+'">打开</button>';
         } else {
           ops = '<button class="btn btn-ghost btn-sm" data-prev="'+esc(f.name)+'">预览</button>' +
                 '<button class="btn btn-ghost btn-sm" data-dl="'+esc(f.name)+'">下载</button>';
+        }
+        ops += ' <button class="btn btn-ghost btn-sm" data-rename="'+esc(fp)+'">重命名</button>';
+        if(!f.is_dir && /\.zip$/i.test(f.name)){
+          ops += ' <button class="btn btn-ghost btn-sm" data-unzip="'+esc(fp)+'">解压</button>';
         }
         ops += ' <button class="btn btn-danger btn-sm" data-del="'+esc(f.name)+'">删除</button>';
         var nameCell = '<span class="row-name'+(f.is_dir?' is-dir':'')+'" data-name="'+esc(f.name)+'" data-isdir="'+(f.is_dir?'1':'0')+'">'
@@ -830,6 +835,8 @@
       qa('[data-prev]', tb).forEach(function(b){ b.onclick = function(){ preview(p, b.getAttribute('data-prev')); }; });
       qa('[data-dl]', tb).forEach(function(b){ b.onclick = function(){ download(p, b.getAttribute('data-dl')); }; });
       qa('[data-del]', tb).forEach(function(b){ b.onclick = function(){ delItem(p, b.getAttribute('data-del')); }; });
+      qa('[data-rename]', tb).forEach(function(b){ b.onclick = function(){ renameItem(b.getAttribute('data-rename')); }; });
+      qa('[data-unzip]', tb).forEach(function(b){ b.onclick = function(){ unzipItem(b.getAttribute('data-unzip')); }; });
       qa('.row-name', tb).forEach(function(n){
         var isDir = n.getAttribute('data-isdir') === '1';
         var name = n.getAttribute('data-name');
@@ -1004,6 +1011,145 @@
       });
     });
   }
+  // ===== 文件管理增强：重命名 / 移动 / 搜索 / ZIP =====
+
+  // 重命名：弹出输入框，修改目标名称（同级目录内）
+  function renameItem(full){
+    var oldName = full.split('/').pop();
+    promptDialog({
+      title:'重命名',
+      icon:'✏',
+      message:'请输入新的名称：<br><span style="color:var(--mut);font-size:12px">'+esc(full)+'</span>',
+      value: oldName,
+      placeholder:'新名称',
+      okText:'重命名',
+      validate:function(v){
+        v = (v||'').trim();
+        if(!v) return '名称不能为空';
+        if(v.indexOf('/') >= 0 || v.indexOf('\\') >= 0) return '名称不能包含路径分隔符';
+        return null;
+      },
+      onOk:function(v){
+        api('/api/rename', { method:'POST', body: JSON.stringify({ path: full, new_name: v.trim() }) }).then(function(x){
+          if(x.ok){ toast('已重命名为「'+v.trim()+'」', true); loadFiles(); }
+          else toast(x.d.error||'重命名失败', false);
+        });
+      }
+    });
+  }
+
+  // 移动单个文件/目录到指定目录
+  function moveItem(full){
+    moveSelected([full]);
+  }
+
+  // 批量移动：弹出目标路径输入框（相对 home，'/' 表示根目录）
+  function moveSelected(paths){
+    if(!paths || !paths.length){
+      var sel = qa('input[data-check]', el('fileList')).filter(function(c){ return c.checked; });
+      paths = sel.map(function(c){ return c.getAttribute('data-path'); });
+    }
+    if(!paths.length){ toast('请先选择要移动的文件', false); return; }
+    promptDialog({
+      title:'移动到…',
+      icon:'✂',
+      message:'输入目标目录（相对根目录，例如 <b>/docs</b> 或 <b>/</b> 表示根）：<br><span style="color:var(--mut);font-size:12px">将移动 '+paths.length+' 个条目，同名文件自动重命名</span>',
+      value: state.curPath || '/',
+      placeholder:'目标目录，如 /docs',
+      okText:'移动',
+      validate:function(v){
+        if(v == null || (v.trim()==='' && paths.length>1)) return '请输入目标目录';
+        return null;
+      },
+      onOk:function(v){
+        var dest = (v||'/').trim();
+        if(dest === '') dest = '/';
+        api('/api/move', { method:'POST', body: JSON.stringify({ paths: paths, dest: dest }) }).then(function(x){
+          if(x.ok){ toast(x.d.message||'移动完成', true); loadFiles(); }
+          else toast(x.d.error||'移动失败', false);
+        });
+      }
+    });
+  }
+
+  // 打包下载：将路径列表打成 zip 下载
+  function zipDownload(paths){
+    if(!paths || !paths.length){
+      var sel = qa('input[data-check]', el('fileList')).filter(function(c){ return c.checked; });
+      paths = sel.map(function(c){ return c.getAttribute('data-path'); });
+    }
+    if(!paths.length){ toast('请先选择要打包的文件', false); return; }
+    var qs = paths.map(function(p){ return 'paths=' + encodeURIComponent(p); }).join('&');
+    var a = document.createElement('a');
+    a.href = '/api/download/zip?' + qs;
+    a.download = 'philoftp-bundle.zip';
+    document.body.appendChild(a); a.click(); a.remove();
+    toast('正在打包下载…', true);
+  }
+
+  // 解压 zip 到目标目录（默认同名目录）
+  function unzipItem(full){
+    confirmDialog({
+      type:'info',
+      title:'解压文件',
+      message:'确定要解压 <b>「'+esc(full.split('/').pop())+'」</b> 吗？<br>默认解压到同名目录，同名文件自动重命名。',
+      okText:'解压',
+      onOk:function(){
+        api('/api/unzip', { method:'POST', body: JSON.stringify({ path: full, mode: 'rename' }) }).then(function(x){
+          if(x.ok){ toast(x.d.message||'解压完成', true); loadFiles(); }
+          else toast(x.d.error||'解压失败', false);
+        });
+      }
+    });
+  }
+
+  // 打开搜索：聚焦搜索框
+  function openSearch(){
+    el('searchModal').classList.add('show');
+    el('searchInput').focus();
+  }
+  function closeSearch(){ el('searchModal').classList.remove('show'); el('searchList').innerHTML = ''; }
+
+  // 执行搜索：调用 /api/search 并渲染结果
+  function searchFiles(){
+    openSearch();
+    var q = (el('searchInput').value || '').trim();
+    if(!q){ toast('请输入搜索关键词', false); return; }
+    el('searchMeta').textContent = '搜索中…';
+    el('searchTitle').textContent = '搜索：' + q;
+    el('searchList').innerHTML = '';
+    el('searchEmpty').style.display = 'none';
+    api('/api/search?q=' + encodeURIComponent(q) + '&path=' + encodeURIComponent(state.curPath || '')).then(function(x){
+      if(!x.ok){ el('searchMeta').textContent = ''; toast(x.d.error||'搜索失败', false); return; }
+      var items = x.d.items || [];
+      el('searchMeta').textContent = '共找到 ' + x.d.count + ' 项' + (x.d.truncated ? '（已截断，请缩小关键词）' : '');
+      if(!items.length){ el('searchEmpty').style.display = 'block'; return; }
+      el('searchList').innerHTML = items.map(function(it){
+        var dir = it.path.indexOf('/') >= 0 ? it.path.substring(0, it.path.lastIndexOf('/')) : '/';
+        var dirLabel = dir === '' ? '/' : dir;
+        var acts = '<button class="btn btn-primary btn-xs" data-locate="'+esc(dir)+'" data-name="'+esc(it.name)+'">定位</button>';
+        if(!it.is_dir && /\.zip$/i.test(it.name)){
+          acts += ' <button class="btn btn-ghost btn-xs" data-sunzip="'+esc(it.path)+'">解压</button>';
+        }
+        return '<tr><td><span class="row-name'+(it.is_dir?' is-dir':'')+'">'+esc(it.name)+(it.is_dir?' 📁':'')+'</span></td>'+
+          '<td class="mono">'+esc(dirLabel)+'</td>'+
+          '<td class="mono">'+fmtSize(it.size)+'</td>'+
+          '<td>'+acts+'</td></tr>';
+      }).join('');
+      qa('[data-locate]', el('searchList')).forEach(function(b){
+        b.onclick = function(){
+          var d = b.getAttribute('data-locate');
+          closeSearch();
+          loadFiles(d === '' ? '/' : d);
+          toast('已定位到 '+esc(b.getAttribute('data-name')), true);
+        };
+      });
+      qa('[data-sunzip]', el('searchList')).forEach(function(b){
+        b.onclick = function(){ closeSearch(); unzipItem(b.getAttribute('data-sunzip')); };
+      });
+    });
+  }
+
   function mkdir(){
     promptDialog({
       title:'新建目录',
@@ -1280,6 +1426,25 @@
       el('selInvert').onclick = function(){ qa('input[data-check]', el('fileList')).forEach(function(cb){ cb.checked = !cb.checked; }); syncSelection(); };
       el('selClear').onclick = function(){ qa('input[data-check]', el('fileList')).forEach(function(cb){ cb.checked = false; }); syncSelection(); };
       el('batchDelBtn').onclick = batchDelete;
+      // 搜索
+      el('searchBtn').onclick = searchFiles;
+      el('searchClose').onclick = closeSearch;
+      el('searchModal').onclick = function(e){ if(e.target === el('searchModal')) closeSearch(); };
+      el('searchInput').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); searchFiles(); } });
+      // 批量操作：下载 / 打包下载 / 移动
+      el('batchDlBtn').onclick = function(){
+        var sel = qa('input[data-check]', el('fileList')).filter(function(c){ return c.checked; });
+        if(sel.length === 1){
+          var p = sel[0].getAttribute('data-path');
+          var name = p.split('/').pop();
+          var dir = p.indexOf('/') >= 0 ? p.substring(0, p.lastIndexOf('/')) : '';
+          download(dir, name);
+        } else {
+          zipDownload();
+        }
+      };
+      el('batchZipBtn').onclick = function(){ zipDownload(); };
+      el('batchMoveBtn').onclick = function(){ moveSelected(); };
       if(state.role === 'admin'){
         el('addUserBtn').onclick = function(){ openUserModal(''); };
         el('saveSettingsBtn').onclick = saveSettings;
