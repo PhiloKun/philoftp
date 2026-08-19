@@ -111,7 +111,7 @@ for a in "${ASSETS[@]}"; do echo "  - $a"; done
 # ---- 3. 创建 tag 并推送双远端 ----
 echo
 echo "[3/5] 创建 tag v${NEW} 并推送到 gitee + origin..."
-git tag -a "v${NEW}" -m "v${NEW}"
+git tag -a "v${NEW}" -m "v${NEW}" 2>/dev/null || echo "⚠ tag v${NEW} 已存在, 直接推送..."
 git push gitee "v${NEW}"
 git push origin "v${NEW}"
 
