@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -91,7 +92,10 @@ func (a *App) Start() error {
 	// FTP
 	ftpSrv, err := service.StartFTP(a.cfg, store)
 	if err != nil {
-		a.lastErr = fmt.Errorf("启动 FTP 失败: %w", err)
+		a.lastErr = fmt.Errorf("%s", formatPortInUseMsg("FTP ", a.cfg.FTPPort, err))
+		if !isAddrInUse(err) {
+			a.lastErr = fmt.Errorf("启动 FTP 失败: %w", err)
+		}
 		return a.lastErr
 	}
 	a.ftpSrv = ftpSrv
@@ -99,7 +103,11 @@ func (a *App) Start() error {
 	// Web
 	webSrv, err := handler.StartWeb(a.cfg, store, webFS)
 	if err != nil {
-		a.lastErr = fmt.Errorf("启动 Web 失败: %w", err)
+		if isAddrInUse(err) {
+			a.lastErr = fmt.Errorf("%s", formatPortInUseMsg("Web 管理", a.cfg.WebPort, err))
+		} else {
+			a.lastErr = fmt.Errorf("启动 Web 失败: %w", err)
+		}
 		if a.ftpSrv != nil {
 			_ = a.ftpSrv.Shutdown()
 		}
@@ -170,6 +178,31 @@ func (a *App) WebURL() string {
 
 // Config 返回配置
 func (a *App) Config() *config.Config { return a.cfg }
+
+// isAddrInUse 判断错误是否为端口已被占用（兼容 Windows / Unix 错误文本）。
+func isAddrInUse(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	keywords := []string{
+		"Only one usage of each socket address",
+		"address already in use",
+		"bind: address already in use",
+		"通常每个套接字地址",
+		"以一种访问权限不允许的方式",
+	}
+	for _, kw := range keywords {
+		if containsCI(msg, kw) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsCI(s, substr string) bool {
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
+}
 
 // localIP 返回本机非回环 IPv4 地址
 func localIP() string {

@@ -62,7 +62,7 @@ func onTrayReady(app *App) {
 	go func() {
 		if err := app.Start(); err != nil {
 			slog.Error("服务启动失败", "error", err)
-			winNotify("PhiloFTP 启动失败", "请查看日志："+err.Error())
+			winNotify("PhiloFTP 启动失败", err.Error())
 			return
 		}
 		refreshTrayStatus(app)
