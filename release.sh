@@ -58,6 +58,36 @@ gitee_token() {
   security find-internet-password -a PhiloKun -s gitee.com -w 2>/dev/null || true
 }
 
+# ---- 从 CHANGELOG.md 提取指定版本条目的发布说明 ----
+# 结构约定：条目以 "## [X.Y.Z] - 日期" 开头，到下一个 "## " 或 "---" 前结束。
+# 若 CHANGELOG 缺失或未找到对应版本，回退为通用说明。
+changelog_notes() {
+  local ver="$1"
+  local notes=""
+  if [ -f CHANGELOG.md ]; then
+    notes="$(awk -v v="[$ver] " '
+      $0 ~ "^## " { if (insec) exit; }
+      $0 ~ "^---" { if (insec) exit; }
+      index($0, "## " v) == 1 { insec=1; next }
+      insec { print }
+    ' CHANGELOG.md)"
+  fi
+  if [ -z "$(echo "$notes" | tr -d '[:space:]')" ]; then
+    notes="PhiloFTP v${ver} 发布。单二进制内网 FTP 服务器 + Web 管理端。
+
+> 提示：本版本未在 CHANGELOG.md 中找到对应条目，请补充发布说明后重新发布，或查看 Git 提交历史了解变更。"
+  fi
+  echo "$notes"
+}
+
+# 生成完整 release 说明：标题行 + CHANGELOG 条目
+build_release_notes() {
+  local ver="$1"
+  local notes
+  notes="$(changelog_notes "$ver")"
+  printf '# PhiloFTP v%s\n\n%s\n' "$ver" "$notes"
+}
+
 echo "================================================"
 echo " PhiloFTP 发布脚本"
 echo "================================================"
@@ -118,11 +148,16 @@ git push origin "v${NEW}"
 # ---- 4. 发布 GitHub release ----
 echo
 echo "[4/5] 发布 GitHub release v${NEW}..."
+RELEASE_NOTES="$(build_release_notes "$NEW")"
+# 将说明写入临时文件，便于 gh 读取多行文本
+NOTES_FILE="$(mktemp)"
+printf '%s\n' "$RELEASE_NOTES" > "$NOTES_FILE"
 gh release create "v${NEW}" "${ASSETS[@]}" \
   --title "PhiloFTP v${NEW}" \
-  --notes "PhiloFTP v${NEW} 发布。单二进制内网 FTP 服务器 + Web 管理端。" \
+  --notes-file "$NOTES_FILE" \
   --repo "$GH_REPO" || echo "⚠ GitHub release 创建失败(可能已存在), 尝试上传附件..."
 gh release upload "v${NEW}" "${ASSETS[@]}" --clobber --repo "$GH_REPO" || true
+rm -f "$NOTES_FILE"
 
 # ---- 5. 发布 Gitee release ----
 echo
@@ -132,10 +167,12 @@ if [ -z "$TOKEN" ]; then
   echo "❌ 无法从 Keychain 获取 Gitee token, 跳过 Gitee 发布" >&2
 else
   # 先尝试创建; 若已存在则取 id
-  BODY="内网 FTP 服务器 + Web 管理端，单二进制分发（v${NEW}）。"
+  # 发布说明复用 CHANGELOG 当前版本条目；Gitee API 的 body 需转义 JSON 特殊字符
+  BODY="$(changelog_notes "$NEW")"
+  BODY_JSON="$(printf '%s' "$BODY" | python3 -c "import sys,json;print(json.dumps(sys.stdin.read()))")"
   CREATE_RESP="$(curl -s --noproxy '*' -X POST "${GITEE_API}/releases?access_token=${TOKEN}" \
     -H "Content-Type: application/json" \
-    -d "{\"tag_name\":\"v${NEW}\",\"name\":\"PhiloFTP v${NEW}\",\"body\":\"${BODY}\",\"target_commitish\":\"master\",\"prerelease\":false}")"
+    -d "{\"tag_name\":\"v${NEW}\",\"name\":\"PhiloFTP v${NEW}\",\"body\":${BODY_JSON},\"target_commitish\":\"master\",\"prerelease\":false}")"
   RID="$(echo "$CREATE_RESP" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('id',''))" 2>/dev/null || true)"
   if [ -z "$RID" ]; then
     RID="$(curl -s --noproxy '*' "${GITEE_API}/releases?access_token=${TOKEN}&per_page=20" \
