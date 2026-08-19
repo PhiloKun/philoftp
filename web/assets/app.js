@@ -63,7 +63,7 @@
   // 自定义输入弹窗：替换原生 prompt()，与玻璃拟态风格统一
   function promptDialog(opts){
     el('promptTitle').textContent = opts.title || '请输入';
-    el('promptMsg').textContent = opts.message || '';
+    el('promptMsg').innerHTML = opts.message || '';
     el('promptIco').textContent = opts.icon || '📁';
     var input = el('promptInput');
     var hint = el('promptHint');
@@ -1016,10 +1016,11 @@
   // 重命名：弹出输入框，修改目标名称（同级目录内）
   function renameItem(full){
     var oldName = full.split('/').pop();
+    var dir = full.substring(0, full.length - oldName.length - 1) || '/';
     promptDialog({
       title:'重命名',
       icon:'✏',
-      message:'请输入新的名称：<br><span style="color:var(--mut);font-size:12px">'+esc(full)+'</span>',
+      message:'请输入新的名称：<br><span style="color:var(--mut);font-size:12px">当前位置：'+esc(dir)+'</span>',
       value: oldName,
       placeholder:'新名称',
       okText:'重命名',
@@ -1031,7 +1032,7 @@
       },
       onOk:function(v){
         api('/api/rename', { method:'POST', body: JSON.stringify({ path: full, new_name: v.trim() }) }).then(function(x){
-          if(x.ok){ toast('已重命名为「'+v.trim()+'」', true); loadFiles(); }
+          if(x.ok){ toast('已重命名为「'+v.trim()+'」', true); if(inSearchMode) searchFiles(); else loadFiles(); }
           else toast(x.d.error||'重命名失败', false);
         });
       }
@@ -1103,52 +1104,121 @@
     });
   }
 
-  // 打开搜索：聚焦搜索框
-  function openSearch(){
-    el('searchModal').classList.add('show');
-    el('searchInput').focus();
-  }
-  function closeSearch(){ el('searchModal').classList.remove('show'); el('searchList').innerHTML = ''; }
+  // 搜索模式状态
+  var inSearchMode = false;
 
-  // 执行搜索：调用 /api/search 并渲染结果
+  // 执行搜索：结果直接显示在文件列表中，支持模糊匹配（后端按文件名子串匹配）
   function searchFiles(){
-    openSearch();
     var q = (el('searchInput').value || '').trim();
-    if(!q){ toast('请输入搜索关键词', false); return; }
-    el('searchMeta').textContent = '搜索中…';
-    el('searchTitle').textContent = '搜索：' + q;
-    el('searchList').innerHTML = '';
-    el('searchEmpty').style.display = 'none';
+    if(!q){ clearSearch(); return; }
+    inSearchMode = true;
+    showSearchClear(true);
+    el('pathBar').textContent = '当前目录：' + state.curPath + '（搜索中…）';
     api('/api/search?q=' + encodeURIComponent(q) + '&path=' + encodeURIComponent(state.curPath || '')).then(function(x){
-      if(!x.ok){ el('searchMeta').textContent = ''; toast(x.d.error||'搜索失败', false); return; }
-      var items = x.d.items || [];
-      el('searchMeta').textContent = '共找到 ' + x.d.count + ' 项' + (x.d.truncated ? '（已截断，请缩小关键词）' : '');
-      if(!items.length){ el('searchEmpty').style.display = 'block'; return; }
-      el('searchList').innerHTML = items.map(function(it){
-        var dir = it.path.indexOf('/') >= 0 ? it.path.substring(0, it.path.lastIndexOf('/')) : '/';
-        var dirLabel = dir === '' ? '/' : dir;
-        var acts = '<button class="btn btn-primary btn-xs" data-locate="'+esc(dir)+'" data-name="'+esc(it.name)+'">定位</button>';
-        if(!it.is_dir && /\.zip$/i.test(it.name)){
-          acts += ' <button class="btn btn-ghost btn-xs" data-sunzip="'+esc(it.path)+'">解压</button>';
-        }
-        return '<tr><td><span class="row-name'+(it.is_dir?' is-dir':'')+'">'+esc(it.name)+(it.is_dir?' 📁':'')+'</span></td>'+
-          '<td class="mono">'+esc(dirLabel)+'</td>'+
-          '<td class="mono">'+fmtSize(it.size)+'</td>'+
-          '<td>'+acts+'</td></tr>';
-      }).join('');
-      qa('[data-locate]', el('searchList')).forEach(function(b){
-        b.onclick = function(){
-          var d = b.getAttribute('data-locate');
-          closeSearch();
-          loadFiles(d === '' ? '/' : d);
-          toast('已定位到 '+esc(b.getAttribute('data-name')), true);
-        };
-      });
-      qa('[data-sunzip]', el('searchList')).forEach(function(b){
-        b.onclick = function(){ closeSearch(); unzipItem(b.getAttribute('data-sunzip')); };
-      });
+      if(!x.ok){ toast(x.d.error||'搜索失败', false); clearSearch(false); return; }
+      renderSearchResults(x.d.items || [], q, x.d.truncated);
     });
   }
+
+  function renderSearchResults(items, q, truncated){
+    selected = {};
+    updateBatchBar();
+    // 面包屑改为搜索提示，点击返回根目录
+    var bc = el('breadcrumb');
+    bc.innerHTML = '<span class="crumb-seg" data-go="/">根目录</span><span class="crumb-sep">/</span><span class="crumb-seg" style="color:var(--cyan)">搜索：'+esc(q)+(truncated?'（结果过多，已截断）':'')+'</span>';
+    qa('.crumb-seg[data-go="/"]', bc).forEach(function(s){ s.onclick = function(){ clearSearch(); }; });
+    if(!items.length){
+      el('fileList').innerHTML = '<tbody><tr><td colspan="5" class="empty">未找到包含「'+esc(q)+'」的文件或目录</td></tr></tbody>';
+      el('pathBar').textContent = '当前目录：' + state.curPath + '（搜索无结果）';
+      return;
+    }
+    el('pathBar').textContent = '当前目录：' + state.curPath + '（找到 ' + items.length + ' 项）';
+    var rows = items.map(function(it){
+      var fp = it.path;
+      var ops = '<button class="btn btn-primary btn-xs" data-locate="'+esc(it.dir)+'" data-name="'+esc(it.name)+'">定位</button>';
+      if(!it.is_dir){
+        ops += ' <button class="btn btn-ghost btn-xs" data-dl="'+esc(fp)+'" title="下载">⬇</button>';
+        ops += ' <button class="btn btn-ghost btn-xs" data-rename="'+esc(fp)+'" title="重命名">✏</button>';
+        if(/\.zip$/i.test(it.name)){
+          ops += ' <button class="btn btn-ghost btn-xs" data-unzip="'+esc(fp)+'" title="解压">解压</button>';
+        }
+      }
+      ops += ' <button class="btn btn-danger btn-xs" data-del="'+esc(fp)+'" title="删除">删除</button>';
+      var nameCell = '<span class="row-name'+(it.is_dir?' is-dir':'')+'" data-name="'+esc(it.name)+'" data-isdir="'+(it.is_dir?'1':'0')+'">'
+        +(it.is_dir?'📁 ':'📄 ')+esc(it.name)+(it.is_dir?' ›':'')+'</span>';
+      var check = '<input type="checkbox" data-check="'+esc(it.name)+'" data-path="'+esc(fp)+'" title="选择 '+(it.is_dir?'目录':'文件')+'">';
+      return '<tr><td class="chk-cell">'+check+'</td><td>'+nameCell+'</td><td class="mono">'+fmtSize(it.size)+'</td><td class="mono">'+esc(it.mod_time||'')+'</td><td>'+ops+'</td></tr>';
+    }).join('');
+    el('fileList').innerHTML = rows;
+    bindSearchRows();
+  }
+
+  function bindSearchRows(){
+    var tb = el('fileList');
+    qa('input[data-check]', tb).forEach(function(cb){ cb.onchange = syncSelection; });
+    syncSelection();
+    qa('[data-locate]', tb).forEach(function(b){
+      b.onclick = function(){
+        var d = b.getAttribute('data-locate');
+        loadFiles(d === '' ? '/' : d);
+        toast('已定位到「'+esc(b.getAttribute('data-name'))+'」所在目录', true);
+      };
+    });
+    qa('[data-dl]', tb).forEach(function(b){ b.onclick = function(){ downloadSearch(b.getAttribute('data-dl')); }; });
+    qa('[data-rename]', tb).forEach(function(b){ b.onclick = function(){ renameItem(b.getAttribute('data-rename')); }; });
+    qa('[data-unzip]', tb).forEach(function(b){ b.onclick = function(){ unzipItem(b.getAttribute('data-unzip')); }; });
+    qa('[data-del]', tb).forEach(function(b){ b.onclick = function(){ delItemSearch(b.getAttribute('data-del')); }; });
+    qa('.row-name', tb).forEach(function(n){
+      var isDir = n.getAttribute('data-isdir') === '1';
+      var name = n.getAttribute('data-name');
+      n.ondblclick = function(){
+        if(isDir){
+          var row = n.parentNode.parentNode;
+          var locateBtn = row.querySelector('[data-locate]');
+          if(locateBtn) loadFiles(locateBtn.getAttribute('data-locate'));
+        } else {
+          downloadSearch(n.parentNode.parentNode.querySelector('[data-dl]').getAttribute('data-dl'));
+        }
+      };
+      n.title = isDir ? '双击进入所在目录' : '双击下载';
+    });
+  }
+
+  function downloadSearch(path){
+    var a = document.createElement('a');
+    a.href = '/api/download?path=' + encodeURIComponent(path);
+    a.download = path.split('/').pop();
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  function delItemSearch(path){
+    var name = path.split('/').pop();
+    confirmDialog({
+      type:'danger',
+      title:'删除文件',
+      message:'确定要删除 <b style="color:var(--txt)">「'+esc(name)+'」</b> 吗？删除后将移入<b>回收站</b>，可恢复。',
+      okText:'确认删除',
+      onOk:function(){
+        api('/api/files?path=' + encodeURIComponent(path), { method:'DELETE' }).then(function(x){
+          if(x.ok){ toastWithUndo('已删除「'+name+'」（已移入回收站）', function(){ undoDelete(path); }); searchFiles(); }
+          else toast(x.d.error||'删除失败', false);
+        });
+      }
+    });
+  }
+
+  function clearSearch(reload){
+    if(reload !== false) reload = true;
+    inSearchMode = false;
+    el('searchInput').value = '';
+    showSearchClear(false);
+    if(reload) loadFiles(state.curPath);
+  }
+
+  function showSearchClear(show){
+    el('searchClear').style.display = show ? 'inline-flex' : 'none';
+  }
+
 
   function mkdir(){
     promptDialog({
@@ -1428,17 +1498,23 @@
       el('batchDelBtn').onclick = batchDelete;
       // 搜索
       el('searchBtn').onclick = searchFiles;
-      el('searchClose').onclick = closeSearch;
-      el('searchModal').onclick = function(e){ if(e.target === el('searchModal')) closeSearch(); };
+      el('searchClear').onclick = function(){ clearSearch(); };
+      if(el('searchClose')) el('searchClose').onclick = function(){ clearSearch(); };
+      if(el('searchModal')) el('searchModal').onclick = function(e){ if(e.target === el('searchModal')) clearSearch(); };
       el('searchInput').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); searchFiles(); } });
+      el('searchInput').addEventListener('input', function(){ if(el('searchInput').value.trim() === '') clearSearch(); });
       // 批量操作：下载 / 打包下载 / 移动
       el('batchDlBtn').onclick = function(){
         var sel = qa('input[data-check]', el('fileList')).filter(function(c){ return c.checked; });
         if(sel.length === 1){
           var p = sel[0].getAttribute('data-path');
           var name = p.split('/').pop();
-          var dir = p.indexOf('/') >= 0 ? p.substring(0, p.lastIndexOf('/')) : '';
-          download(dir, name);
+          if(inSearchMode){
+            downloadSearch(p);
+          } else {
+            var dir = p.indexOf('/') >= 0 ? p.substring(0, p.lastIndexOf('/')) : '';
+            download(dir, name);
+          }
         } else {
           zipDownload();
         }

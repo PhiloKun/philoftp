@@ -25,12 +25,14 @@ func currentUserOf(c *gin.Context) (model.User, bool) {
 	return appAuth.CurrentUserOf(c)
 }
 
-// safeJoin 将用户相对路径拼接到其 home 目录，并防止越权穿越
+// safeJoin 将用户相对路径拼接到其 home 目录，并防止越权穿越。
+// 前端统一使用正斜杠，此处用 filepath.FromSlash 保证在 Windows 下也能正确解析。
 func safeJoin(cfg *config.Config, user model.User, rel string) (string, error) {
 	home := model.ResolveHome(config.DataDirOf(cfg), user.Home)
 	if rel == "" {
 		return home, nil
 	}
+	rel = filepath.FromSlash(rel)
 	clean := filepath.Clean("/" + rel) // 规范化，去除 .. 等
 	full := filepath.Join(home, clean)
 	// 越权检测：必须仍在 home 内

@@ -57,7 +57,7 @@ func renameHandler(cfg *config.Config) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "名称非法"})
 			return
 		}
-	 src, err := safeJoin(cfg, user, req.Path)
+	src, err := safeJoin(cfg, user, req.Path)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -193,19 +193,28 @@ func searchHandler(cfg *config.Config) gin.HandlerFunc {
 			if rerr != nil {
 				return nil
 			}
+			relSlash := filepath.ToSlash(rel)
 			info, ierr := d.Info()
 			if ierr != nil {
 				return nil
 			}
+			dir := relSlash
+			if !d.IsDir() {
+				dir = filepath.ToSlash(filepath.Dir(relSlash))
+				if dir == "" || dir == "." {
+					dir = "/"
+				}
+			}
 			results = append(results, map[string]interface{}{
-				"path":     filepath.ToSlash(rel),
+				"path":     relSlash,
+				"dir":      dir,
 				"name":     name,
 				"is_dir":   d.IsDir(),
 				"size":     info.Size(),
 				"mod_time": info.ModTime().Format("2006-01-02 15:04"),
 			})
 			return nil
-		})
+			})
 		c.JSON(http.StatusOK, gin.H{
 			"q":       q,
 			"count":   len(results),
