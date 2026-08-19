@@ -9,7 +9,15 @@ import (
 	"strconv"
 )
 
+// version / gitCommit 由构建时 -ldflags 注入（见 Makefile VERSION_LDFLAGS），
+// 用于启动日志与发布元数据，确保产物版本可追溯。
+var (
+	version   = "dev"
+	gitCommit = ""
+)
+
 func main() {
+	fmt.Printf("PhiloFTP %s (commit %s)\n", version, gitCommit)
 	configPath := flag.String("config", envOr("PHILOFTP_CONFIG", defaultConfigPath()), "配置文件路径")
 	dbPath := flag.String("db", envOr("PHILOFTP_DB", defaultDBPath()), "SQLite 用户数据库路径")
 	ftpPort := flag.Int("ftp-port", envInt("PHILOFTP_FTP_PORT", 0), "FTP 端口(覆盖配置)")

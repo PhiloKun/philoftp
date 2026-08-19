@@ -9,8 +9,9 @@ SetCompressor /SOLID lzma
 !include "FileFunc.nsh"
 
 ; ---------- 常量 ----------
+; __VERSION__ / __VERSION4__ / __EXE_NAME__ 由 Makefile 构建时替换为实际版本与产物文件名
 !define APP_NAME "PhiloFTP"
-!define APP_VERSION "1.0.0"
+!define APP_VERSION "__VERSION__"
 !define APP_PUBLISHER "PhiloKun"
 !define APP_WEB "https://gitee.com/PhiloKun/philoftp"
 !define REG_UNINSTALL "Software\Microsoft\Windows\CurrentVersion\Uninstall\PhiloFTP"
@@ -20,7 +21,7 @@ OutFile "PhiloFTP-Setup.exe"
 ; 默认安装到当前用户目录，避免 Program Files 写权限问题，无需管理员权限
 InstallDir "$LOCALAPPDATA\PhiloFTP"
 InstallDirRegKey HKCU "${REG_UNINSTALL}" "InstallLocation"
-VIProductVersion "1.0.0.0"
+VIProductVersion "__VERSION4__"
 VIAddVersionKey "ProductName" "PhiloFTP 内网 FTP 服务器"
 VIAddVersionKey "ProductVersion" "${APP_VERSION}"
 VIAddVersionKey "FileDescription" "PhiloFTP 内网 FTP 服务器安装程序"
@@ -55,7 +56,7 @@ VIAddVersionKey "FileVersion" "${APP_VERSION}"
 Section "PhiloFTP" SecMain
   SetOutPath "$INSTDIR"
   ; 主程序（重命名为 philoftp.exe）
-  File "/oname=philoftp.exe" "philoftp-windows-amd64.exe"
+  File "/oname=philoftp.exe" "__EXE_NAME__"
   ; 图标（供快捷方式用）
   File "philoftp.ico"
   ; 说明文档

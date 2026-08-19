@@ -166,13 +166,24 @@ CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc \
 GOOS=linux GOARCH=amd64 go build -o dist/linux/philoftp-linux-amd64 .
 ```
 
-或使用 Makefile 快速构建 Windows 安装包（需先安装依赖）：
+### 版本号管理（单一真源）
+
+版本号统一写在仓库根目录 **`version.txt`**（如 `1.0.1`）。构建时由 Makefile 读取并：
+
+- 注入二进制（`-ldflags -X main.version` / `-X github.com/philoftp/handler.version`），体现在**启动日志**与**关于页**；
+- 拼接到**所有产物文件名**（如 `philoftp-1.0.1-windows-setup.exe`、`philoftp-1.0.1-macos.zip`）；
+- Windows 安装包内部版本信息（`VIProductVersion` / `ProductVersion`）同步为对应 `x.y.z.0`。
+
+发布新版本流程：
 
 ```bash
-brew install nsis mingw-w64    # macOS 构建环境依赖
-pip3 install Pillow             # 生成图标
-make dist-windows              # 仅构建 Windows 托盘版二进制
-make installer-windows         # 构建二进制并生成 PhiloFTP-Setup.exe 安装包
+# 1) 修改 version.txt 为新的版本号
+# 2) 构建全部平台产物（文件名自动带版本）
+brew install nsis mingw-w64 && pip3 install Pillow
+make dist
+# 3) 打对应 tag 并推送到双远端（tag 形如 v1.0.1）
+make tag-version
+# 4) 在 GitHub / Gitee 创建 Release，上传 dist/ 下对应文件
 ```
 
 > Windows 二进制使用 `-H=windowsgui` 构建为 GUI 程序（无控制台窗口），配合系统托盘常驻后台。
