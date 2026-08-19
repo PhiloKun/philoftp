@@ -1133,15 +1133,18 @@
     el('pathBar').textContent = '当前目录：' + state.curPath + '（找到 ' + items.length + ' 项）';
     var rows = items.map(function(it){
       var fp = it.path;
-      var ops = '<button class="btn btn-primary btn-xs" data-locate="'+esc(it.dir)+'" data-name="'+esc(it.name)+'">定位</button>';
-      if(!it.is_dir){
-        ops += ' <button class="btn btn-ghost btn-xs" data-dl="'+esc(fp)+'" title="下载">⬇</button>';
-        ops += ' <button class="btn btn-ghost btn-xs" data-rename="'+esc(fp)+'" title="重命名">✏</button>';
-        if(/\.zip$/i.test(it.name)){
-          ops += ' <button class="btn btn-ghost btn-xs" data-unzip="'+esc(fp)+'" title="解压">解压</button>';
-        }
+      var ops;
+      if(it.is_dir){
+        ops = '<button class="btn btn-ghost btn-sm" data-open-dir="'+esc(it.dir)+'" data-open-name="'+esc(it.name)+'">打开</button>';
+      } else {
+        ops = '<button class="btn btn-ghost btn-sm" data-prev-dir="'+esc(it.dir)+'" data-prev-name="'+esc(it.name)+'">预览</button>' +
+              '<button class="btn btn-ghost btn-sm" data-dl-dir="'+esc(it.dir)+'" data-dl-name="'+esc(it.name)+'">下载</button>';
       }
-      ops += ' <button class="btn btn-danger btn-xs" data-del="'+esc(fp)+'" title="删除">删除</button>';
+      ops += ' <button class="btn btn-ghost btn-sm" data-rename="'+esc(fp)+'">重命名</button>';
+      if(!it.is_dir && /\.zip$/i.test(it.name)){
+        ops += ' <button class="btn btn-ghost btn-sm" data-unzip="'+esc(fp)+'">解压</button>';
+      }
+      ops += ' <button class="btn btn-danger btn-sm" data-del="'+esc(fp)+'">删除</button>';
       var nameCell = '<span class="row-name'+(it.is_dir?' is-dir':'')+'" data-name="'+esc(it.name)+'" data-isdir="'+(it.is_dir?'1':'0')+'">'
         +(it.is_dir?'📁 ':'📄 ')+esc(it.name)+(it.is_dir?' ›':'')+'</span>';
       var check = '<input type="checkbox" data-check="'+esc(it.name)+'" data-path="'+esc(fp)+'" title="选择 '+(it.is_dir?'目录':'文件')+'">';
@@ -1155,14 +1158,15 @@
     var tb = el('fileList');
     qa('input[data-check]', tb).forEach(function(cb){ cb.onchange = syncSelection; });
     syncSelection();
-    qa('[data-locate]', tb).forEach(function(b){
-      b.onclick = function(){
-        var d = b.getAttribute('data-locate');
-        loadFiles(d === '' ? '/' : d);
-        toast('已定位到「'+esc(b.getAttribute('data-name'))+'」所在目录', true);
-      };
+    qa('[data-open-dir]', tb).forEach(function(b){
+      b.onclick = function(){ loadFiles(b.getAttribute('data-open-dir')); };
     });
-    qa('[data-dl]', tb).forEach(function(b){ b.onclick = function(){ downloadSearch(b.getAttribute('data-dl')); }; });
+    qa('[data-prev-dir]', tb).forEach(function(b){
+      b.onclick = function(){ preview(b.getAttribute('data-prev-dir'), b.getAttribute('data-prev-name')); };
+    });
+    qa('[data-dl-dir]', tb).forEach(function(b){
+      b.onclick = function(){ download(b.getAttribute('data-dl-dir'), b.getAttribute('data-dl-name')); };
+    });
     qa('[data-rename]', tb).forEach(function(b){ b.onclick = function(){ renameItem(b.getAttribute('data-rename')); }; });
     qa('[data-unzip]', tb).forEach(function(b){ b.onclick = function(){ unzipItem(b.getAttribute('data-unzip')); }; });
     qa('[data-del]', tb).forEach(function(b){ b.onclick = function(){ delItemSearch(b.getAttribute('data-del')); }; });
@@ -1170,23 +1174,17 @@
       var isDir = n.getAttribute('data-isdir') === '1';
       var name = n.getAttribute('data-name');
       n.ondblclick = function(){
+        var row = n.parentNode.parentNode;
         if(isDir){
-          var row = n.parentNode.parentNode;
-          var locateBtn = row.querySelector('[data-locate]');
-          if(locateBtn) loadFiles(locateBtn.getAttribute('data-locate'));
+          var openBtn = row.querySelector('[data-open-dir]');
+          if(openBtn) loadFiles(openBtn.getAttribute('data-open-dir'));
         } else {
-          downloadSearch(n.parentNode.parentNode.querySelector('[data-dl]').getAttribute('data-dl'));
+          var prevBtn = row.querySelector('[data-prev-dir]');
+          if(prevBtn) preview(prevBtn.getAttribute('data-prev-dir'), prevBtn.getAttribute('data-prev-name'));
         }
       };
-      n.title = isDir ? '双击进入所在目录' : '双击下载';
+      n.title = isDir ? '双击进入所在目录' : '双击预览';
     });
-  }
-
-  function downloadSearch(path){
-    var a = document.createElement('a');
-    a.href = '/api/download?path=' + encodeURIComponent(path);
-    a.download = path.split('/').pop();
-    document.body.appendChild(a); a.click(); a.remove();
   }
 
   function delItemSearch(path){
