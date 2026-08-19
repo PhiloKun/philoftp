@@ -27,6 +27,10 @@ GITEE_API="https://gitee.com/api/v5/repos/${GITEE_REPO}"
 
 DRYRUN=0
 BUMP="${1:-patch}"
+if [ "$BUMP" = "-n" ]; then
+  DRYRUN=1
+  BUMP="${2:-patch}"
+fi
 
 # ---- 读取当前版本 ----
 read_version() {
@@ -89,7 +93,10 @@ make dist
 make installer-windows
 
 # 收集产物路径
-mapfile -t ASSETS < <(find dist -maxdepth 2 -type f \( \
+ASSETS=()
+while IFS= read -r line; do
+  [ -n "$line" ] && ASSETS+=("$line")
+done < <(find dist -maxdepth 2 -type f \( \
   -name "${BINARY}-${NEW}-windows-setup.exe" -o \
   -name "${BINARY}-${NEW}-windows.zip" -o \
   -name "${BINARY}-${NEW}-macos.zip" -o \
