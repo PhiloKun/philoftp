@@ -21,6 +21,9 @@ func main() {
 	// 初始化日志：文件 + 控制台
 	initLogging("")
 
+	// 单实例保护：重复启动时提示并退出，避免生成多个进程
+	guardSingleInstance(winNotify)
+
 	app, err := NewApp(*configPath, *dbPath)
 	if err != nil {
 		log.Printf("初始化失败: %v", err)

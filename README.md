@@ -9,8 +9,9 @@
 - 🔒 **权限控制（RBAC 分级）**：两级角色 `admin`（全部权限）与 `user`（仅文件操作），各自独立根目录（chroot 隔离，互不可见）
 - 🌐 **Web 管理端**：浏览器即可管理用户、浏览/上传/下载文件，无需命令行
 - 📦 **单文件分发**：编译为单个可执行文件，双击即可运行，无需安装运行时
+- 🔒 **单实例运行**：全局文件锁（Windows `LockFileEx` / 其他平台 `flock`）确保同一时刻仅一个进程；重复启动时弹出提示而**不会**再生成一个实例
 - 🔌 **被动模式**：内置 PASV 端口范围，适配内网/NAT 环境
-- 🖥 **Windows 系统托盘**（GUI）：常驻后台，托盘菜单支持查看状态/启动/停止/打开 Web/打开日志/退出，不会闪退或弹出控制台
+- 🖥 **Windows 系统托盘**（GUI）：常驻后台，托盘菜单支持查看状态/启动/停止/打开 Web/打开日志/退出；启动成功后弹出**确认提示框**，明确告知程序已运行及 Web 管理地址（GUI 模式无控制台，避免"启动无反馈"的困惑）
 - 📋 **日志文件**：运行日志实时写入 `~/.philoftp/logs/philoftp.log`，便于排查与追溯
 - 📡 **局域网访问**：自动注册 mDNS `philoftp.local`，登录页展示本机 IP / mDNS 主机名 / 端口与**访问地址二维码**，其他设备扫码即可访问，无需记 IP
 - 📱 **移动端适配**：导航栏在窄屏自动转为顶部横向滚动；局域网访问卡片/二维码在窄屏居中堆叠；表单、按钮、二维码等触控目标适配 ≥44px，避免横向滚动与内容溢出
@@ -183,8 +184,11 @@ philoftp/
 ├── main.go            # 程序入口、命令行参数解析、组装各层并启动
 ├── app.go             # 服务管理器（FTP/Web 统一启停 + 状态）
 ├── logging.go         # 日志初始化（文件 + 控制台双写）
-├── tray_windows.go    # Windows 系统托盘实现（状态/启动/停止/打开Web/退出）
+├── tray_windows.go    # Windows 系统托盘实现（状态/启动/停止/打开Web/退出 + 启动提示）
 ├── tray_other.go      # 非 Windows 控制台模式
+├── singleinstance.go  # 单实例锁（跨平台分发，重复启动提示并退出）
+├── singleinstance_windows.go / singleinstance_other.go  # 平台具体文件锁实现
+├── notify_windows.go / notify_other.go  # 平台提示框（Windows MessageBox / 其他空实现）
 ├── icon.go            # //go:embed assets/icon.png 托盘图标
 ├── webstatic.go       # //go:embed web —— 将前端静态资源嵌入单二进制
 ├── assets/icon.png    # 应用图标

@@ -62,8 +62,13 @@ func onTrayReady(app *App) {
 	go func() {
 		if err := app.Start(); err != nil {
 			slog.Error("服务启动失败", "error", err)
+			winNotify("PhiloFTP 启动失败", "请查看日志："+err.Error())
+			return
 		}
 		refreshTrayStatus(app)
+		// 启动确认提示：GUI 模式无控制台，弹窗让用户明确知道程序已启动
+		winNotify("PhiloFTP 已启动",
+			"Web 管理: "+app.WebURL()+"\n点击托盘图标可打开管理页或退出。")
 	}()
 
 	// 打开 Web
