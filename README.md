@@ -179,16 +179,34 @@ GOOS=linux GOARCH=amd64 go build -o dist/linux/philoftp-linux-amd64 .
 - 拼接到**所有产物文件名**（如 `philoftp-1.0.1-windows-setup.exe`、`philoftp-1.0.1-macos.zip`）；
 - Windows 安装包内部版本信息（`VIProductVersion` / `ProductVersion`）同步为对应 `x.y.z.0`。
 
-发布新版本流程：
+发布新版本流程（推荐一键脚本）：
 
 ```bash
-# 1) 修改 version.txt 为新的版本号
-# 2) 构建全部平台产物（文件名自动带版本）
+# 1) 确保已安装构建依赖
 brew install nsis mingw-w64 && pip3 install Pillow
+
+# 2) 运行 release.sh：自动递增版本号、构建全平台产物、打 tag、推双远端、发布 GitHub + Gitee Release
+./release.sh            # 默认 patch 递增（1.0.1 -> 1.0.2）
+./release.sh minor      # 次版本递增
+./release.sh 1.2.3      # 直接指定版本号
+./release.sh -n 1.2.3   # 仅改 version.txt，不构建/发布（干跑）
+```
+
+脚本会执行以下步骤：
+
+1. 读取 `version.txt` 并按规则递增，写回单一真源；
+2. `make dist` + `make installer-windows` 构建 macOS / Windows / Linux 全部平台产物（文件名均带版本号）；
+3. 创建 `vX.Y.Z` tag 并推送到 `origin`（GitHub）和 `gitee`；
+4. `gh release create` 发布 GitHub Release 并上传附件；
+5. 通过 Gitee API 发布 Gitee Release 并上传附件（大文件直连，避免代理 HTTP:100 失败）。
+
+如需手动发布，仍可按以下步骤操作：
+
+```bash
 make dist
-# 3) 打对应 tag 并推送到双远端（tag 形如 v1.0.1）
+make installer-windows
 make tag-version
-# 4) 在 GitHub / Gitee 创建 Release，上传 dist/ 下对应文件
+# 再分别在 GitHub / Gitee 创建 Release 并上传 dist/ 下对应产物
 ```
 
 > Windows 二进制使用 `-H=windowsgui` 构建为 GUI 程序（无控制台窗口），配合系统托盘常驻后台。
