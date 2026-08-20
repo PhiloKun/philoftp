@@ -235,6 +235,30 @@ td .mono,td.mono{font-size:13px;color:var(--haze);}
 .row-name.is-dir:hover{background:rgba(34,211,238,.12);color:#fff;}
 .row-name.is-dir::after{content:'›';display:inline-block;margin-left:6px;opacity:.7;font-size:11px;}
 
+/* 排序表头 */
+th.sortable{cursor:pointer;user-select:none;transition:.12s;}
+th.sortable:hover{color:var(--cyan);}
+th.sortable .sort-ind{font-size:9px;margin-left:3px;opacity:.6;}
+th.sortable.sort-active{color:var(--cyan);}
+th.sortable.sort-active .sort-ind{opacity:1;}
+
+/* 分页工具条 */
+.file-pager{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:14px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:rgba(13,19,32,.6);}
+.pager-left{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.pager-size{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--haze);}
+.pager-size .input{width:auto;padding:4px 8px;}
+.pager-filter{display:inline-flex;gap:6px;}
+.chip{font-size:12px;padding:5px 12px;border-radius:999px;border:1px solid var(--line);background:rgba(7,10,18,.5);color:var(--haze);cursor:pointer;transition:.12s;}
+.chip:hover{border-color:var(--cyan);color:var(--cyan);}
+.chip.chip-on{background:rgba(34,211,238,.12);border-color:var(--cyan);color:var(--cyan);}
+.pager-mid{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+.pg-btn{font-size:13px;min-width:32px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:rgba(7,10,18,.5);color:var(--haze);cursor:pointer;transition:.12s;}
+.pg-btn:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan);}
+.pg-btn:disabled{opacity:.35;cursor:not-allowed;}
+.pg-btn.pg-cur{background:rgba(34,211,238,.16);border-color:var(--cyan);color:var(--cyan);font-weight:600;}
+.pg-ellipsis{color:var(--muted);padding:0 4px;}
+.pager-right{margin-left:auto;font-size:13px;color:var(--haze);white-space:nowrap;}
+
 .tag{display:inline-block;padding:3px 11px;border-radius:999px;font-size:12px;font-family:var(--font-mono);white-space:nowrap;}
 .tag-ok{background:rgba(52,211,153,.14);color:var(--ok);border:1px solid rgba(52,211,153,.3);}
 .tag-off{background:rgba(138,160,192,.12);color:var(--haze);border:1px solid rgba(138,160,192,.25);}

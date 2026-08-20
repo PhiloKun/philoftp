@@ -494,6 +494,19 @@ func validateUser(u model.User) error {
 	return nil
 }
 
+// isTextExt 判断扩展名是否为应以内联文本预览的类型（标准库 mime 未注册也按文本处理）。
+func isTextExt(ext string) bool {
+	ext = strings.ToLower(ext)
+	switch ext {
+	case ".txt", ".md", ".log", ".csv", ".json", ".xml", ".yml", ".yaml",
+		".ini", ".conf", ".go", ".js", ".ts", ".jsx", ".tsx", ".css", ".html",
+		".htm", ".sh", ".py", ".c", ".cpp", ".h", ".hpp", ".java", ".rs",
+		".toml", ".cfg", ".env", ".text", ".bat", ".ps1":
+		return true
+	}
+	return false
+}
+
 // downloadHandler 文件下载：支持中文文件名、MIME 推断、Range 断点续传
 func downloadHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -515,7 +528,13 @@ func downloadHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerF
 		}
 		ctype := mime.TypeByExtension(filepath.Ext(full))
 		if ctype == "" {
-			ctype = "application/octet-stream"
+			// 标准库未注册的文本扩展名统一按 UTF-8 纯文本处理，
+			// 否则会被当作 application/octet-stream，导致 inline 预览时浏览器强制下载。
+			if isTextExt(filepath.Ext(full)) {
+				ctype = "text/plain; charset=utf-8"
+			} else {
+				ctype = "application/octet-stream"
+			}
 		}
 		// 文件名编码（兼容中文）
 		ascii := isASCII(info.Name())

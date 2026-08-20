@@ -1,5 +1,5 @@
 (function(){
-  var state = { me:null, role:'user', cfg:null, curPath:'/' };
+  var state = { me:null, role:'user', cfg:null, curPath:'/', curItems:[], searchQuery:'', pager:{ page:1, pageSize:50, sortKey:'name', sortDir:'asc', filter:'all' } };
   function el(id){ return document.getElementById(id); }
   function q(sel,root){ return (root||document).querySelector(sel); }
   function qa(sel,root){ return Array.prototype.slice.call((root||document).querySelectorAll(sel)); }
@@ -805,56 +805,147 @@
     el('upBtn').style.visibility = (p === '/' || p === '') ? 'hidden' : 'visible';
     renderBreadcrumb(p);
     api('/api/files?path=' + encodeURIComponent(p)).then(function(x){
-      var tb = el('fileList'); el('fileEmpty').style.display = 'none';
       if(!x.ok){ toast(x.d.error||'加载失败', false); return; }
-      var items = x.d.items || [];
-      if(!items.length){ el('fileEmpty').style.display = 'block'; tb.innerHTML = ''; return; }
-      tb.innerHTML = items.map(function(f){
-        var fp = fullPath(p, f.name);
-        var ops;
-        if(f.is_dir){
-          ops = '<button class="btn btn-ghost btn-sm" data-open="'+esc(f.name)+'">打开</button>';
+      state.curItems = x.d.items || [];
+      // 切换目录时回到第 1 页，并重置筛选为「全部」（避免带入上一层目录的文件夹/文件筛选导致新目录内容为空）
+      state.pager.page = 1;
+      state.pager.filter = 'all';
+      qa('[data-filter]').forEach(function(x){ x.classList.toggle('chip-on', x.getAttribute('data-filter') === 'all'); });
+      renderFilePage(p);
+    });
+  }
+
+  // 把一组 items 渲染为表格行并绑定事件（供分页/搜索复用）
+  function renderFileRows(items, p){
+    var tb = el('fileList');
+    tb.innerHTML = items.map(function(f){
+      var fp = fullPath(p, f.name);
+      var ops;
+      if(f.is_dir){
+        ops = '<button class="btn btn-ghost btn-sm" data-open="'+esc(f.name)+'">打开</button>';
+      } else {
+        ops = '<button class="btn btn-ghost btn-sm" data-prev="'+esc(f.name)+'">预览</button>' +
+              '<button class="btn btn-ghost btn-sm" data-dl="'+esc(f.name)+'">下载</button>';
+      }
+      ops += ' <button class="btn btn-ghost btn-sm" data-rename="'+esc(fp)+'">重命名</button>';
+      if(!f.is_dir && /\.zip$/i.test(f.name)){
+        ops += ' <button class="btn btn-ghost btn-sm" data-unzip="'+esc(fp)+'">解压</button>';
+      }
+      ops += ' <button class="btn btn-ghost btn-sm" data-share="'+esc(fp)+'">分享</button>';
+      ops += ' <button class="btn btn-danger btn-sm" data-del="'+esc(f.name)+'">删除</button>';
+      var nameCell = '<span class="row-name'+(f.is_dir?' is-dir':'')+'" data-name="'+esc(f.name)+'" data-isdir="'+(f.is_dir?'1':'0')+'">'
+        +(f.is_dir?'📁 ':'📄 ')+esc(f.name)+(f.is_dir?' ›':'')+'</span>';
+      var check = '<input type="checkbox" data-check="'+esc(f.name)+'" data-path="'+esc(fullPath(p,f.name))+'" title="选择 '+(f.is_dir?'目录':'文件')+'">';
+      return '<tr><td class="chk-cell">'+check+'</td><td>'+nameCell+'</td><td class="mono">'+fmtSize(f.size)+'</td><td class="mono">'+esc(f.mod_time||'')+'</td><td>'+ops+'</td></tr>';
+    }).join('');
+    tb.classList.add('stagger-rows');
+    qa('input[data-check]', tb).forEach(function(cb){ cb.onchange = syncSelection; });
+    syncSelection();
+    qa('[data-open]', tb).forEach(function(b){ b.onclick = function(){ var np = p === '/' ? '/' + b.getAttribute('data-open') : p + '/' + b.getAttribute('data-open'); loadFiles(np); }; });
+    qa('[data-prev]', tb).forEach(function(b){ b.onclick = function(){ preview(p, b.getAttribute('data-prev')); }; });
+    qa('[data-dl]', tb).forEach(function(b){ b.onclick = function(){ download(p, b.getAttribute('data-dl')); }; });
+    qa('[data-del]', tb).forEach(function(b){ b.onclick = function(){ delItem(p, b.getAttribute('data-del')); }; });
+    qa('[data-rename]', tb).forEach(function(b){ b.onclick = function(){ renameItem(b.getAttribute('data-rename')); }; });
+    qa('[data-unzip]', tb).forEach(function(b){ b.onclick = function(){ unzipItem(b.getAttribute('data-unzip')); }; });
+    qa('[data-share]', tb).forEach(function(b){ b.onclick = function(){ openShareDialog(b.getAttribute('data-share')); }; });
+    qa('.row-name', tb).forEach(function(n){
+      var isDir = n.getAttribute('data-isdir') === '1';
+      var name = n.getAttribute('data-name');
+      n.ondblclick = function(){
+        if(isDir){
+          var np = p === '/' ? '/' + name : p + '/' + name;
+          loadFiles(np);
         } else {
-          ops = '<button class="btn btn-ghost btn-sm" data-prev="'+esc(f.name)+'">预览</button>' +
-                '<button class="btn btn-ghost btn-sm" data-dl="'+esc(f.name)+'">下载</button>';
+          preview(p, name);
         }
-        ops += ' <button class="btn btn-ghost btn-sm" data-rename="'+esc(fp)+'">重命名</button>';
-        if(!f.is_dir && /\.zip$/i.test(f.name)){
-          ops += ' <button class="btn btn-ghost btn-sm" data-unzip="'+esc(fp)+'">解压</button>';
-        }
-        ops += ' <button class="btn btn-ghost btn-sm" data-share="'+esc(fp)+'">分享</button>';
-        ops += ' <button class="btn btn-danger btn-sm" data-del="'+esc(f.name)+'">删除</button>';
-        var nameCell = '<span class="row-name'+(f.is_dir?' is-dir':'')+'" data-name="'+esc(f.name)+'" data-isdir="'+(f.is_dir?'1':'0')+'">'
-          +(f.is_dir?'📁 ':'📄 ')+esc(f.name)+(f.is_dir?' ›':'')+'</span>';
-        var check = '<input type="checkbox" data-check="'+esc(f.name)+'" data-path="'+esc(fullPath(p,f.name))+'" title="选择 '+(f.is_dir?'目录':'文件')+'">';
-        return '<tr><td class="chk-cell">'+check+'</td><td>'+nameCell+'</td><td class="mono">'+fmtSize(f.size)+'</td><td class="mono">'+esc(f.mod_time||'')+'</td><td>'+ops+'</td></tr>';
-      }).join('');
-      // 表格行错峰入场
-      tb.classList.add('stagger-rows');
-      // 勾选变更时同步批量栏
-      qa('input[data-check]', tb).forEach(function(cb){ cb.onchange = syncSelection; });
-      syncSelection();
-      qa('[data-open]', tb).forEach(function(b){ b.onclick = function(){ var np = p === '/' ? '/' + b.getAttribute('data-open') : p + '/' + b.getAttribute('data-open'); loadFiles(np); }; });
-      qa('[data-prev]', tb).forEach(function(b){ b.onclick = function(){ preview(p, b.getAttribute('data-prev')); }; });
-      qa('[data-dl]', tb).forEach(function(b){ b.onclick = function(){ download(p, b.getAttribute('data-dl')); }; });
-      qa('[data-del]', tb).forEach(function(b){ b.onclick = function(){ delItem(p, b.getAttribute('data-del')); }; });
-      qa('[data-rename]', tb).forEach(function(b){ b.onclick = function(){ renameItem(b.getAttribute('data-rename')); }; });
-      qa('[data-unzip]', tb).forEach(function(b){ b.onclick = function(){ unzipItem(b.getAttribute('data-unzip')); }; });
-      qa('[data-share]', tb).forEach(function(b){ b.onclick = function(){ openShareDialog(b.getAttribute('data-share')); }; });
-      qa('.row-name', tb).forEach(function(n){
-        var isDir = n.getAttribute('data-isdir') === '1';
-        var name = n.getAttribute('data-name');
-        n.ondblclick = function(){
-          if(isDir){
-            var np = p === '/' ? '/' + name : p + '/' + name;
-            loadFiles(np);
-          } else {
-            preview(p, name);
-          }
-        };
-        // hover 提示：目录/文件分别提示双击动作
-        n.title = isDir ? '双击进入' : '双击预览';
+      };
+      n.title = isDir ? '双击进入' : '双击预览';
+    });
+  }
+
+  // 前端分页渲染：筛选 → 排序 → 切片，并渲染分页条（数据已存在 state.curItems）
+  function renderFilePage(p){
+    p = p || state.curPath;
+    var pg = state.pager;
+    var items = state.curItems.slice();
+    // 1) 筛选
+    if(pg.filter === 'dir') items = items.filter(function(f){ return f.is_dir; });
+    else if(pg.filter === 'file') items = items.filter(function(f){ return !f.is_dir; });
+    // 2) 排序（目录优先保持：排序前目录仍在前；选择按名称排序时保留目录优先）
+    items.sort(function(a, b){
+      if(pg.sortKey === 'name'){
+        if(a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1; // 目录优先
+        var r = a.name.localeCompare(b.name, 'zh-Hans-CN');
+        return pg.sortDir === 'asc' ? r : -r;
+      }
+      var av, bv;
+      if(pg.sortKey === 'size'){ av = a.size||0; bv = b.size||0; }
+      else { av = a.mod_time||''; bv = b.mod_time||''; }
+      if(av < bv) return pg.sortDir === 'asc' ? -1 : 1;
+      if(av > bv) return pg.sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    var total = items.length;
+    var pageSize = pg.pageSize;
+    var totalPages = pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1;
+    if(pg.page > totalPages) pg.page = totalPages;
+    if(pg.page < 1) pg.page = 1;
+    var startIdx = pageSize > 0 ? (pg.page - 1) * pageSize : 0;
+    var endIdx = pageSize > 0 ? startIdx + pageSize : total;
+    var pageItems = items.slice(startIdx, endIdx);
+
+    el('filePager').style.display = 'flex';
+    if(!total){
+      if(state.curItems.length){
+        el('fileEmpty').textContent = pg.filter === 'dir' ? '当前目录下没有文件夹' : (pg.filter === 'file' ? '当前目录下没有文件' : '没有符合条件的内容');
+      } else {
+        el('fileEmpty').textContent = '此目录为空';
+      }
+      el('fileEmpty').style.display = 'block';
+      el('fileList').innerHTML = '';
+      renderPagerNav(totalPages, total, 0, 0);
+      return;
+    }
+    el('fileEmpty').style.display = 'none';
+    renderFileRows(pageItems, p);
+    renderPagerNav(totalPages, total, startIdx + 1, Math.min(endIdx, total));
+    updateSortIndicators();
+  }
+
+  // 渲染分页导航 + 总数信息
+  function renderPagerNav(totalPages, total, from, to){
+    var pg = state.pager;
+    // 页码（带省略号）
+    var nav = '';
+    if(totalPages > 1){
+      nav += '<button class="pg-btn" data-pg="prev" '+(pg.page<=1?'disabled':'')+'>‹ 上一页</button>';
+      var pages = [];
+      for(var i=1;i<=totalPages;i++){
+        if(i===1 || i===totalPages || (i>=pg.page-1 && i<=pg.page+1)) pages.push(i);
+        else if(pages[pages.length-1] !== '…') pages.push('…');
+      }
+      pages.forEach(function(i){
+        if(i === '…') nav += '<span class="pg-ellipsis">…</span>';
+        else nav += '<button class="pg-btn'+(i===pg.page?' pg-cur':'')+'" data-pg="'+i+'">'+i+'</button>';
       });
+      nav += '<button class="pg-btn" data-pg="next" '+(pg.page>=totalPages?'disabled':'')+'>下一页 ›</button>';
+    }
+    el('pageNav').innerHTML = nav;
+    el('pageInfo').textContent = '显示 ' + from + '–' + to + ' / 共 ' + total + ' 项' + (totalPages>1 ? '（第 '+pg.page+'/'+totalPages+' 页）' : '');
+  }
+
+  function updateSortIndicators(){
+    qa('.sortable').forEach(function(th){
+      var key = th.getAttribute('data-sort');
+      var ind = th.querySelector('.sort-ind');
+      if(!ind) return;
+      if(key === state.pager.sortKey){
+        ind.textContent = state.pager.sortDir === 'asc' ? '▲' : '▼';
+        th.classList.add('sort-active');
+      } else {
+        ind.textContent = '';
+        th.classList.remove('sort-active');
+      }
     });
   }
   // 拼接当前目录下的完整路径
@@ -954,15 +1045,18 @@
     loadFiles(idx <= 0 ? '/' : p.substring(0, idx));
   }
   // 文件预览：按扩展名选择展示方式
+  // 设计原则：除用户主动点击「下载」按钮外，任何预览操作都只内联展示内容，绝不触发下载。
+  // 仅支持浏览器原生可内联的格式（图片/视频/音频/文本/PDF）；Office 等需外部软件或
+  // 公网服务的格式归入「无法预览」，给出明确下载引导，由用户主动下载。
   function preview(dir, name){
     var ext = (name.split('.').pop() || '').toLowerCase();
     var url = '/api/download?inline=1&path=' + encodeURIComponent((dir==='/'?'':dir) + '/' + name);
     var body = el('previewBody');
     el('previewName').textContent = name;
     var img = ['png','jpg','jpeg','gif','webp','bmp','svg','ico'];
-    var txt = ['txt','md','log','csv','json','xml','yml','yaml','ini','conf','go','js','ts','css','html','sh','py','c','cpp','h','java','rs'];
-    var vid = ['mp4','webm','ogg','mov'];
-    var aud = ['mp3','wav','ogg','m4a','flac'];
+    var txt = ['txt','md','log','csv','json','xml','yml','yaml','ini','conf','go','js','ts','css','html','htm','sh','py','c','cpp','h','java','rs','toml','cfg','env','text','bat','ps1'];
+    var vid = ['mp4','webm','ogg','mov','m4v'];
+    var aud = ['mp3','wav','ogg','m4a','flac','aac'];
     var html = '';
     if(img.indexOf(ext) >= 0){
       html = '<img class="preview-img" src="'+url+'" alt="'+esc(name)+'">';
@@ -975,7 +1069,14 @@
     } else if(ext === 'pdf'){
       html = '<iframe class="preview-frame" src="'+url+'"></iframe>';
     } else {
-      html = '<div class="preview-unsupported">该文件类型暂不支持在线预览。<br><button class="btn btn-primary btn-sm" id="prevDl">下载查看</button></div>';
+      // 无法在线预览：明确提示格式 + 下载引导，下载需用户主动点击
+      var hint = '该文件类型（.'+esc(ext||'未知')+'）暂不支持在线预览。';
+      var office = ['doc','docx','xls','xlsx','ppt','pptx','rtf','odt','ods','odp'];
+      if(office.indexOf(ext) >= 0){
+        hint += '请下载后使用 Office / WPS 等软件打开。';
+      }
+      html = '<div class="preview-unsupported">'+hint+'<br>'+
+             '<button class="btn btn-primary btn-sm" id="prevDl">⬇ 下载文件</button></div>';
     }
     body.innerHTML = html;
     var dl = el('prevDl');
@@ -1191,20 +1292,72 @@
     var bc = el('breadcrumb');
     bc.innerHTML = '<span class="crumb-seg" data-go="/">根目录</span><span class="crumb-sep">/</span><span class="crumb-seg" style="color:var(--cyan)">搜索：'+esc(q)+(truncated?'（结果过多，已截断）':'')+'</span>';
     qa('.crumb-seg[data-go="/"]', bc).forEach(function(s){ s.onclick = function(){ clearSearch(); }; });
+    el('pathBar').textContent = '当前目录：' + state.curPath + '（搜索' + (items.length?('找到 '+items.length+' 项）'):'无结果）');
     if(!items.length){
-      el('fileList').innerHTML = '<tbody><tr><td colspan="5" class="empty">未找到包含「'+esc(q)+'」的文件或目录</td></tr></tbody>';
-      el('pathBar').textContent = '当前目录：' + state.curPath + '（搜索无结果）';
+      el('fileList').innerHTML = '';
+      el('fileEmpty').style.display = 'block';
+      el('fileEmpty').textContent = '未找到包含「'+esc(q)+'」的文件或目录';
+      el('filePager').style.display = 'none';
       return;
     }
-    el('pathBar').textContent = '当前目录：' + state.curPath + '（找到 ' + items.length + ' 项）';
-    var rows = items.map(function(it){
-      var fp = it.path;
+    // 搜索结果同样复用前端分页（按 path 显示所属目录）
+    state.curItems = items.map(function(it){
+      return { name: it.name, is_dir: it.is_dir, size: it.size, mod_time: it.mod_time, _dir: it.dir };
+    });
+    state.searchQuery = q;
+    state.pager.page = 1; state.pager.filter = 'all';
+    renderSearchPage();
+  }
+
+  // 搜索结果分页渲染：按所属目录(_dir)拼接完整路径，复用排序/筛选/分页逻辑
+  function renderSearchPage(){
+    var pg = state.pager;
+    var items = state.curItems.slice();
+    if(pg.filter === 'dir') items = items.filter(function(f){ return f.is_dir; });
+    else if(pg.filter === 'file') items = items.filter(function(f){ return !f.is_dir; });
+    items.sort(function(a, b){
+      if(pg.sortKey === 'name'){
+        if(a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
+        var r = a.name.localeCompare(b.name, 'zh-Hans-CN');
+        return pg.sortDir === 'asc' ? r : -r;
+      }
+      var av = pg.sortKey === 'size' ? (a.size||0) : (a.mod_time||'');
+      var bv = pg.sortKey === 'size' ? (b.size||0) : (b.mod_time||'');
+      if(av < bv) return pg.sortDir === 'asc' ? -1 : 1;
+      if(av > bv) return pg.sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    var total = items.length;
+    var pageSize = pg.pageSize;
+    var totalPages = pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1;
+    if(pg.page > totalPages) pg.page = totalPages;
+    if(pg.page < 1) pg.page = 1;
+    var startIdx = pageSize > 0 ? (pg.page - 1) * pageSize : 0;
+    var endIdx = pageSize > 0 ? startIdx + pageSize : total;
+    var pageItems = items.slice(startIdx, endIdx);
+
+    el('filePager').style.display = 'flex';
+    if(!total){
+      if(state.curItems.length){
+        el('fileEmpty').textContent = pg.filter === 'dir' ? '搜索结果中没有文件夹' : (pg.filter === 'file' ? '搜索结果中没有文件' : '没有符合条件的内容');
+      } else {
+        el('fileEmpty').textContent = '未找到包含「'+esc(state.searchQuery)+'」的文件或目录';
+      }
+      el('fileEmpty').style.display = 'block';
+      el('fileList').innerHTML = '';
+      renderPagerNav(1,0,0,0);
+      return;
+    }
+    el('fileEmpty').style.display = 'none';
+    var tb = el('fileList');
+    tb.innerHTML = pageItems.map(function(it){
+      var p = it._dir; var fp = fullPath(p, it.name);
       var ops;
       if(it.is_dir){
-        ops = '<button class="btn btn-ghost btn-sm" data-open-dir="'+esc(it.dir)+'" data-open-name="'+esc(it.name)+'">打开</button>';
+        ops = '<button class="btn btn-ghost btn-sm" data-open-dir="'+esc(p)+'" data-open-name="'+esc(it.name)+'">打开</button>';
       } else {
-        ops = '<button class="btn btn-ghost btn-sm" data-prev-dir="'+esc(it.dir)+'" data-prev-name="'+esc(it.name)+'">预览</button>' +
-              '<button class="btn btn-ghost btn-sm" data-dl-dir="'+esc(it.dir)+'" data-dl-name="'+esc(it.name)+'">下载</button>';
+        ops = '<button class="btn btn-ghost btn-sm" data-prev-dir="'+esc(p)+'" data-prev-name="'+esc(it.name)+'">预览</button>' +
+              '<button class="btn btn-ghost btn-sm" data-dl-dir="'+esc(p)+'" data-dl-name="'+esc(it.name)+'">下载</button>';
       }
       ops += ' <button class="btn btn-ghost btn-sm" data-rename="'+esc(fp)+'">重命名</button>';
       if(!it.is_dir && /\.zip$/i.test(it.name)){
@@ -1216,8 +1369,10 @@
       var check = '<input type="checkbox" data-check="'+esc(it.name)+'" data-path="'+esc(fp)+'" title="选择 '+(it.is_dir?'目录':'文件')+'">';
       return '<tr><td class="chk-cell">'+check+'</td><td>'+nameCell+'</td><td class="mono">'+fmtSize(it.size)+'</td><td class="mono">'+esc(it.mod_time||'')+'</td><td>'+ops+'</td></tr>';
     }).join('');
-    el('fileList').innerHTML = rows;
+    tb.classList.add('stagger-rows');
     bindSearchRows();
+    renderPagerNav(totalPages, total, startIdx + 1, Math.min(endIdx, total));
+    updateSortIndicators();
   }
 
   function bindSearchRows(){
@@ -1565,6 +1720,41 @@
       if(el('searchModal')) el('searchModal').onclick = function(e){ if(e.target === el('searchModal')) clearSearch(); };
       el('searchInput').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); searchFiles(); } });
       el('searchInput').addEventListener('input', function(){ if(el('searchInput').value.trim() === '') clearSearch(); });
+      // ===== 分页 / 筛选 / 排序 交互 =====
+      el('pageSize').onchange = function(){
+        state.pager.pageSize = parseInt(el('pageSize').value, 10) || 0;
+        state.pager.page = 1;
+        inSearchMode ? renderSearchPage() : renderFilePage();
+      };
+      el('pageNav').addEventListener('click', function(e){
+        var btn = e.target.closest('[data-pg]'); if(!btn) return;
+        var pg = state.pager; var val = btn.getAttribute('data-pg');
+        if(val === 'prev') pg.page = Math.max(1, pg.page - 1);
+        else if(val === 'next') pg.page = pg.page + 1;
+        else pg.page = parseInt(val, 10);
+        inSearchMode ? renderSearchPage() : renderFilePage();
+        el('fileList').parentNode.parentNode.scrollIntoView({ behavior:'smooth', block:'start' });
+      });
+      qa('[data-filter]').forEach(function(b){
+        b.onclick = function(){
+          state.pager.filter = b.getAttribute('data-filter');
+          state.pager.page = 1;
+          qa('[data-filter]').forEach(function(x){ x.classList.toggle('chip-on', x === b); });
+          inSearchMode ? renderSearchPage() : renderFilePage();
+        };
+      });
+      qa('.sortable').forEach(function(th){
+        th.onclick = function(){
+          var key = th.getAttribute('data-sort');
+          var pg = state.pager;
+          if(pg.sortKey === key){ pg.sortDir = pg.sortDir === 'asc' ? 'desc' : 'asc'; }
+          else { pg.sortKey = key; pg.sortDir = 'asc'; }
+          pg.page = 1;
+          inSearchMode ? renderSearchPage() : renderFilePage();
+        };
+      });
+      // 默认筛选高亮「全部」
+      qa('[data-filter]').forEach(function(x){ x.classList.toggle('chip-on', x.getAttribute('data-filter') === 'all'); });
       // 批量操作：下载 / 打包下载 / 移动
       el('batchDlBtn').onclick = function(){
         var sel = qa('input[data-check]', el('fileList')).filter(function(c){ return c.checked; });

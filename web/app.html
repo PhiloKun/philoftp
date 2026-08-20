@@ -163,8 +163,27 @@
             </div>
           </div>
         </div>
-        <div class="table-wrap"><table><thead><tr><th style="width:34px"><input type="checkbox" id="selAllHead"></th><th>名称</th><th>大小</th><th>修改时间</th><th style="width:160px">操作</th></tr></thead><tbody id="fileList"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th style="width:34px"><input type="checkbox" id="selAllHead"></th><th class="sortable" data-sort="name">名称 <span class="sort-ind"></span></th><th class="sortable" data-sort="size">大小 <span class="sort-ind"></span></th><th class="sortable" data-sort="mod_time">修改时间 <span class="sort-ind"></span></th><th style="width:160px">操作</th></tr></thead><tbody id="fileList"></tbody></table></div>
         <div class="empty" id="fileEmpty" style="display:none">此目录为空</div>
+        <div class="file-pager" id="filePager" style="display:none">
+          <div class="pager-left">
+            <label class="pager-size">每页
+              <select id="pageSize" class="input input-xs">
+                <option value="20">20</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+                <option value="0">全部</option>
+              </select>
+            </label>
+            <span class="pager-filter">
+              <button class="chip" data-filter="all">全部</button>
+              <button class="chip" data-filter="dir">文件夹</button>
+              <button class="chip" data-filter="file">文件</button>
+            </span>
+          </div>
+          <div class="pager-mid" id="pageNav"></div>
+          <div class="pager-right" id="pageInfo"></div>
+        </div>
       </section>
 
       <!-- 搜索结果 -->
