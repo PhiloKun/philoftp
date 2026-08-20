@@ -15,6 +15,7 @@
 - 📋 **日志文件**：运行日志实时写入 `~/.philoftp/logs/philoftp.log`，便于排查与追溯
 - 📡 **局域网访问**：自动注册 mDNS `philoftp.local`，登录页展示本机 IP / mDNS 主机名 / 端口与**访问地址二维码**，其他设备扫码即可访问，无需记 IP
 - 🗂 **Web 文件管理增强**：支持**重命名 / 批量移动（剪切）**、**递归文件名搜索**（结果可一键定位到所在目录）、**ZIP 打包下载**（多文件/目录服务端打包）与**在线解压**（上传或已有的 .zip 一键解压，同名自动重命名，防 zip 穿越攻击），全部复用越权防护，仅可写用户可操作
+- 🔗 **文件分享链接**：对任意文件/目录一键生成**公开临时链接**（`/s/<token>`，无需登录即可访问），可设**提取码**与**有效期**（1 小时～30 天或永久）；目录分享自动打包为 zip 下载；分享由分享者显式授权，受 token + 提取码保护，且严格限制在分享者 home 内（复用 `safeJoin` 越权防护），不破坏 RBAC；「我的分享」视图可集中查看、复制或撤销
 - 📱 **移动端适配**：导航栏在窄屏自动转为顶部横向滚动；局域网访问卡片/二维码在窄屏居中堆叠；表单、按钮、二维码等触控目标适配 ≥44px，避免横向滚动与内容溢出
 
 ## 快速开始
@@ -46,9 +47,9 @@ Windows 用户可直接使用 `dist/windows/PhiloFTP-Setup.exe` 一键安装：
 
 ```bash
 git clone <repo> && cd philoftp
-make build        # 编译到 dist/macos/philoftp
-# 或： go build -o dist/macos/philoftp .
-./dist/macos/philoftp
+make build        # 编译到 dist/macos/philoftp-<version>
+# 或： go build -o dist/macos/philoftp ./cmd/philoftp
+./dist/macos/philoftp-<version>
 ```
 
 ## 默认账户
@@ -97,6 +98,7 @@ make build        # 编译到 dist/macos/philoftp
 - **ZIP 打包下载**：批量勾选后「打包下载」或单文件/目录直接下载，多文件服务端打包为 `.zip`（以公共目录为基准，条目不含 `../` 前缀）；后端 `GET /api/download/zip?paths=`
 - **在线解压**：`.zip` 文件行「解压」按钮，将压缩包解压到同名目录（默认）或指定目录，支持 `rename`（默认，同名自动重命名）/ `overwrite` / `cancel` 三种冲突策略；内置 zip 穿越（zip slip）防护，仅可写用户可操作；后端 `POST /api/unzip`
 - **系统设置**：由原「基础设置 + 系统配置」合并而来，分「服务端口 / 存储与访问」两个分组统一管理：FTP/Web 端口、PASV 范围、数据目录、自助注册开关；保存即写入 `config.json` 并**即时生效**（FTP 服务端口/PASV 自动热重载、数据目录与注册开关实时读取），仅 Web 管理端口需重启进程；PASV 范围以 `min-max` 形式输入，前端自动组合/拆分为端口字段
+- **文件分享**：文件行「分享」按钮生成公开临时链接（`POST /api/share`，参数 `path` / 可选 `code` 提取码 / `expire_in` 小时数 0 为永久），弹窗展示完整 URL 与链接元信息（类型/提取码/有效期）并支持一键复制；公开端点 `GET /s/:token` 无需登录即可访问——文件支持预览（`?inline=1`）或下载（`?dl=1`），目录自动打包为 zip 下载；设了提取码时先展示极简提取码输入页，校验通过方可访问；「我的分享」视图集中列出所有有效分享，可复制链接或一键撤销（`DELETE /api/share/:token`）；分享记录按用户存储于 home 内 `.shares/index.json`，访问时跨用户查找有效且未过期的记录，严格限制在分享者 home 内（复用 `safeJoin` 越权防护），不破坏 RBAC
 
 > 界面采用「深空控制台风」设计（玻璃拟态 + 青色辉光 + 等宽技术字体 + 入场动画），样式与脚本位于 `web/assets/`。Google Fonts 异步加载并配系统字体强回退，无网时自动降级为系统字体，保证内网/离线环境仍可正常使用。前端登录/注册输入框提供聚焦提示、格式示例与动态校验反馈；删除类危险操作使用**自定义玻璃拟态确认弹窗**（替换浏览器原生 `confirm()`），带脉冲图标、红色警示与快捷键（Esc 取消 / Enter 确认），交互与整体风格完全统一；新建目录等需要输入的交互使用**自定义玻璃拟态输入弹窗**（替换浏览器原生 `prompt()`），青色脉冲图标、居中等宽输入框、实时名称校验（非法字符 / `.`/`..` / 长度限制）、Esc 取消 / Enter 提交。
 
@@ -158,24 +160,24 @@ ftp://<服务器IP>:2121
 
 ```bash
 # macOS (Apple Silicon)
-GOOS=darwin GOARCH=arm64 go build -o dist/macos/philoftp-darwin-arm64 .
+GOOS=darwin GOARCH=arm64 go build -o dist/macos/philoftp-darwin-arm64 ./cmd/philoftp
 
 # macOS (Intel)
-GOOS=darwin GOARCH=amd64 go build -o dist/macos/philoftp-darwin-amd64 .
+GOOS=darwin GOARCH=amd64 go build -o dist/macos/philoftp-darwin-amd64 ./cmd/philoftp
 
 # Windows（系统托盘版，需 CGO + mingw-w64）
 CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc \
-  go build -ldflags "-H=windowsgui" -o dist/windows/philoftp-windows-amd64.exe .
+  go build -ldflags "-H=windowsgui" -o dist/windows/philoftp-windows-amd64.exe ./cmd/philoftp
 
 # Linux
-GOOS=linux GOARCH=amd64 go build -o dist/linux/philoftp-linux-amd64 .
+GOOS=linux GOARCH=amd64 go build -o dist/linux/philoftp-linux-amd64 ./cmd/philoftp
 ```
 
 ### 版本号管理（单一真源）
 
 版本号统一写在仓库根目录 **`version.txt`**（如 `1.0.1`）。构建时由 Makefile 读取并：
 
-- 注入二进制（`-ldflags -X main.version` / `-X github.com/philoftp/handler.version`），体现在**启动日志**与**关于页**；
+- 注入二进制（`-ldflags -X github.com/philoftp/cmd/philoftp.version` / `-X github.com/philoftp/internal/handler.version`），体现在**启动日志**与**关于页**；
 - 拼接到**所有产物文件名**（如 `philoftp-1.0.1-windows-setup.exe`、`philoftp-1.0.1-macos.zip`）；
 - Windows 安装包内部版本信息（`VIProductVersion` / `ProductVersion`）同步为对应 `x.y.z.0`。
 
@@ -242,56 +244,61 @@ make tag-version
 
 ```
 philoftp/
-├── main.go            # 程序入口、命令行参数解析、组装各层并启动
-├── app.go             # 服务管理器（FTP/Web 统一启停 + 状态）
-├── logging.go         # 日志初始化（文件 + 控制台双写）
-├── tray_windows.go    # Windows 系统托盘实现（状态/启动/停止/打开Web/退出 + 启动提示）
-├── tray_other.go      # 非 Windows 控制台模式
-├── singleinstance.go  # 单实例锁（跨平台分发，重复启动提示并退出）
-├── singleinstance_windows.go / singleinstance_other.go  # 平台具体文件锁实现
-├── notify_windows.go / notify_other.go  # 平台提示框（Windows MessageBox / 其他空实现）
-├── icon.go            # //go:embed assets/icon.png 托盘图标
-├── webstatic.go       # //go:embed web —— 将前端静态资源嵌入单二进制
-├── assets/icon.png    # 应用图标
-├── go.mod / go.sum
-├── model/             # 领域模型
-│   └── user.go          # User 模型 + ResolveHome 路径辅助
-├── config/            # 配置层
-│   └── config.go        # Config 结构体、加载/持久化、DataDirOf、ToAPI
-├── repository/        # 数据访问层（持久化）
-│   └── dbstore.go       # DBStore：基于 SQLite 的用户存储（bcrypt 哈希 + 迁移 + 最后管理员保护）
-├── service/           # 业务/服务层
-│   └── ftpserver.go     # FTP 服务器启动与文件系统驱动（goftp/server）
-├── handler/           # 接入层（HTTP API + 静态资源托管，不含界面代码）
-│   ├── web.go           # Web 管理端 API（Gin）
-│   └── web_ui.go        # 前端静态资源托管（页面路由 + /assets 挂载）
-├── web/               # 【前端】纯静态资源，与后端 Go 代码完全分离
-│   ├── index.html       # 登录页
-│   ├── register.html    # 注册页
-│   ├── app.html         # 控制台单页（SPA）
+├── embedfs.go         # 【根包】集中嵌入二进制静态资源：//go:embed web（前端）、//go:embed assets/icon.*（图标），对外导出 WebFS / IconPNG / IconICO
+├── cmd/
+│   └── philoftp/        # 程序入口（package main）
+│       ├── main.go        # 命令行参数解析、环境变量、配置路径 fallback、组装并启动
+│       ├── app.go         # 服务管理器（FTP/Web 统一启停 + 状态）
+│       ├── logging.go     # 日志初始化（文件 + 控制台双写）
+│       ├── tray_windows.go  # Windows 系统托盘实现（状态/启动/停止/打开Web/退出 + 启动提示）
+│       ├── tray_other.go    # 非 Windows 控制台模式
+│       ├── singleinstance*.go  # 单实例锁（跨平台分发，重复启动提示并退出）
+│       └── notify_*.go        # 平台提示框（Windows MessageBox / 其他空实现）
+├── internal/           # 后端内部包（不对外暴露 API，按职责分层）
+│   ├── model/           # 领域模型
+│   │   └── user.go        # User 模型 + ResolveHome 路径辅助
+│   ├── config/          # 配置层
+│   │   └── config.go      # Config 结构体、加载/持久化、DataDirOf、ToAPI
+│   ├── repository/      # 数据访问层（持久化）
+│   │   └── dbstore.go     # DBStore：基于 SQLite 的用户存储（bcrypt 哈希 + 迁移 + 最后管理员保护）
+│   ├── service/         # 业务/服务层
+│   │   ├── ftpserver.go    # FTP 服务器启动与文件系统驱动（goftp/server）
+│   │   └── mdns.go         # 局域网 mDNS 注册（philoftp.local）
+│   └── handler/         # 接入层（HTTP API + 静态资源托管，不含界面代码）
+│       ├── web.go         # Web 管理端 API（Gin）
+│       ├── web_ui.go      # 前端静态资源托管（页面路由 + /assets 挂载）
+│       ├── share.go       # 文件分享：公开临时链接（token + 提取码 + 有效期 + 目录 zip）
+│       └── ...            # 鉴权 / 文件操作 / 回收站 / 上传下载 等
+├── web/                 # 【前端】纯静态资源，与后端 Go 代码完全分离（保持独立目录，便于单独开发/调试）
+│   ├── index.html         # 登录页
+│   ├── register.html      # 注册页
+│   ├── app.html           # 控制台单页（SPA）
 │   └── assets/
-│       ├── style.css      # 共享样式（深空控制台风：玻璃拟态 + 青色辉光）
-│       ├── auth.js        # 登录 / 注册逻辑
-│       └── app.js         # 控制台交互逻辑
+│       ├── style.css        # 共享样式（深空控制台风：玻璃拟态 + 青色辉光）
+│       ├── auth.js          # 登录 / 注册逻辑
+│       └── app.js           # 控制台交互逻辑
+├── assets/              # 应用图标等共享资源（被 embedfs.go 嵌入）
+│   ├── icon.png           # 托盘图标（PNG）
+│   └── icon.ico           # 托盘图标（Windows .ico）
+├── go.mod / go.sum
 ├── configs/           # 默认配置模板（运行时从此处读取）
 │   ├── config.json       # 服务器配置（端口、PASV 范围、FTPS 等）
 │   └── users.db          # SQLite 用户数据库（默认 admin/admin123，密码 bcrypt 哈希）
 ├── data/              # 文件存储根目录（运行时生成，含各用户 home）
 ├── build/windows/     # Windows 安装包构建脚本（NSIS 模板 + 图标生成 + 说明）
-├── dist/              # 各平台构建产物
-│   ├── macos/           # macOS 二进制 / zip / PhiloFTP.app
-│   ├── windows/         # Windows exe / zip / PhiloFTP-Setup.exe
+├── dist/              # 各平台构建产物（不入库）
+│   ├── macos/           # macOS 二进制 / zip
+│   ├── windows/         # Windows exe / zip / 安装包
 │   └── linux/           # Linux 二进制 / zip
+├── docs/              # 项目文档（架构说明、设计决策等）
 ├── Makefile           # 构建 / 运行 / 打包脚本
 └── .gitignore
 ```
 
 > **前后端职责边界**
-> - **后端（Go）**：专注业务逻辑与接口。`handler/` 仅提供 RESTful API（`/api/*`）与静态资源托管，**不内联任何 HTML/JS/CSS**；前端文件全部位于 `web/`，经 `//go:embed` 嵌入后由 `handler/web_ui.go` 托管，保持单二进制分发。
+> - **后端（Go）**：专注业务逻辑与接口。`internal/handler/` 仅提供 RESTful API（`/api/*`）与静态资源托管，**不内联任何 HTML/JS/CSS**；前端文件全部位于 `web/`，经根级 `embedfs.go` 的 `//go:embed web` 嵌入后由 `internal/handler/web_ui.go` 托管，保持单二进制分发。
 > - **前端（静态资源）**：专注界面与交互，纯 HTML/CSS/JS，不依赖后端编译，可独立开发/调试（如本地用任意静态服务器打开 `web/`）。
->
-> 源码按职责拆分为内部包（model / config / repository / service / handler），
-> 由根目录 `main.go`（package main）负责组装与启动。`go build .` 即可编译单二进制。
+> - **目录分层**：入口在 `cmd/philoftp/`（package main），后端按职责拆分为 `internal/{model,config,repository,service,handler}`，嵌入资源集中在根级 `embedfs.go`（规避 `//go:embed` 不支持 `..` 的限制，使 `web/`、`assets/` 仍保留在仓库根目录与前端/资源解耦）。`go build ./cmd/philoftp` 即可编译单二进制。
 
 ### 常用命令（Makefile）
 

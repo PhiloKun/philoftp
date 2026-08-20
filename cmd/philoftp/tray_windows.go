@@ -8,6 +8,8 @@ import (
 	"sync"
 
 	"github.com/getlantern/systray"
+
+	"github.com/philoftp"
 )
 
 // runTray 在 Windows 上启动系统托盘：常驻后台，提供启动/停止/打开Web/退出菜单。
@@ -43,7 +45,7 @@ var (
 
 func onTrayReady(app *App) {
 	// Windows 托盘优先使用 .ico 图标（兼容性最好）
-	systray.SetIcon(iconBytesICO())
+	systray.SetIcon(embedfs.IconICO())
 	systray.SetTitle("PhiloFTP")
 	systray.SetTooltip("PhiloFTP 内网 FTP 服务器")
 

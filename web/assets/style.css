@@ -502,6 +502,21 @@ td .mono,td.mono{font-size:13px;color:var(--haze);}
 .breadcrumb{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:0 0 12px;padding:8px 12px;border-radius:10px;background:rgba(7,10,18,.4);border:1px solid var(--line);font-size:13px;color:var(--haze);}
 .crumb-seg{cursor:pointer;color:var(--haze);padding:2px 8px;border-radius:6px;transition:.15s;}
 .crumb-seg:hover{color:var(--cyan);background:rgba(34,211,238,.1);}
+
+/* ===== 文件分享 ===== */
+.tag{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;line-height:1.4;
+  background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.3);color:var(--cyan);}
+.tag.tone-ok{background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.35);color:var(--ok);}
+.tone-ok{color:var(--ok);}
+.row-name{font-weight:600;color:var(--txt);}
+.share-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid var(--line);}
+.share-info{min-width:0;flex:1;}
+.share-info .row-name{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.share-sub{font-size:12px;color:var(--muted);margin-top:3px;}
+.share-url{font-size:12px;color:var(--cyan);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.share-ops{display:flex;gap:8px;flex-shrink:0;}
+.share-meta .tag{margin:0;}
+.share-gen-path{background:rgba(7,10,18,.45);border:1px solid var(--line);border-radius:8px;padding:8px 10px;}
 .crumb-sep{color:var(--line);opacity:.6;}
 
 .toast{position:fixed;top:20px;right:20px;background:var(--panel);border:1px solid var(--line);padding:13px 19px;

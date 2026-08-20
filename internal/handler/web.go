@@ -20,9 +20,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/skip2/go-qrcode"
 
-	"github.com/philoftp/config"
-	"github.com/philoftp/model"
-	"github.com/philoftp/repository"
+	"github.com/philoftp/internal/config"
+	"github.com/philoftp/internal/model"
+	"github.com/philoftp/internal/repository"
 )
 
 // version / gitCommit 通过构建时 -ldflags 注入，用于"关于"页展示。
@@ -61,6 +61,8 @@ func StartWeb(cfg *config.Config, store *repository.DBStore, webFS fs.FS) (*WebS
 	// 访问信息（局域网 IP / mDNS 主机名）无需登录即可获取，供登录页展示"其他电脑如何访问"
 	r.GET("/api/access", accessHandler(cfg))
 	r.GET("/api/access/qr", accessQRHandler(cfg))
+	// 公开分享访问（无需登录，受 token + 提取码保护）
+	r.GET("/s/:token", publicShareHandler(cfg, store))
 
 	// 受保护接口（所有已登录用户均可访问文件操作）
 	authed := r.Group("")
@@ -84,6 +86,10 @@ func StartWeb(cfg *config.Config, store *repository.DBStore, webFS fs.FS) (*WebS
 	authed.GET("/api/trash", trashHandler(cfg))
 	authed.POST("/api/trash/restore", trashRestoreHandler(cfg))
 	authed.DELETE("/api/trash", trashClearHandler(cfg))
+	// 文件分享（需登录，分享自己 home 内文件）
+	authed.POST("/api/share", createShareHandler(cfg))
+	authed.GET("/api/share", listSharesHandler(cfg))
+	authed.DELETE("/api/share/:token", revokeShareHandler(cfg))
 	authed.POST("/api/logout", auth.Logout)
 	authed.GET("/api/me", func(c *gin.Context) {
 		u, _ := auth.CurrentUserOf(c)
@@ -139,11 +145,11 @@ func statusHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFun
 func aboutHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"version":    version,
-			"go_version": runtime.Version(),
-			"git_commit": gitCommit,
-			"author":     "philokun",
-			"repo_gitee": "https://gitee.com/PhiloKun/philoftp",
+			"version":     version,
+			"go_version":  runtime.Version(),
+			"git_commit":  gitCommit,
+			"author":      "philokun",
+			"repo_gitee":  "https://gitee.com/PhiloKun/philoftp",
 			"repo_github": "https://github.com/PhiloKun/philoftp",
 			"features": []gin.H{
 				{"icon": "📁", "name": "FTP 文件服务", "desc": "goftp/server 内核，支持 PASV 端口范围，适配内网/NAT 环境。"},
@@ -587,8 +593,8 @@ func filesHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFunc
 		}
 		items := make([]map[string]interface{}, 0)
 		for _, e := range entries {
-			// 过滤回收站等内部系统目录，不在文件列表中显示
-			if e.Name() == ".trash" {
+			// 过滤回收站、分享索引等内部系统目录，不在文件列表中显示
+			if e.Name() == ".trash" || e.Name() == ".shares" {
 				continue
 			}
 			fi, err := e.Info()
@@ -734,8 +740,8 @@ func uploadHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFun
 		// mode=cancel：存在同名则取消整个上传，返回 409 与冲突清单
 		if mode == uploadModeCancel && len(conflicts) > 0 {
 			c.JSON(http.StatusConflict, gin.H{
-				"ok":       false,
-				"error":    "存在同名文件，已取消上传",
+				"ok":        false,
+				"error":     "存在同名文件，已取消上传",
 				"conflicts": conflicts,
 			})
 			return
@@ -764,11 +770,11 @@ func uploadHandler(cfg *config.Config, store *repository.DBStore) gin.HandlerFun
 			}
 		}
 		c.JSON(http.StatusOK, gin.H{
-			"ok":         true,
-			"count":      len(files),
-			"mode":       mode,
+			"ok":          true,
+			"count":       len(files),
+			"mode":        mode,
 			"overwritten": overwritten,
-			"renamed":    renamed,
+			"renamed":     renamed,
 		})
 	}
 }
@@ -869,5 +875,3 @@ func usersHandler(store *repository.DBStore) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"users": out})
 	}
 }
-
-

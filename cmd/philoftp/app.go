@@ -12,10 +12,11 @@ import (
 
 	"github.com/goftp/server"
 
-	"github.com/philoftp/config"
-	"github.com/philoftp/handler"
-	"github.com/philoftp/repository"
-	"github.com/philoftp/service"
+	"github.com/philoftp"
+	"github.com/philoftp/internal/config"
+	"github.com/philoftp/internal/handler"
+	"github.com/philoftp/internal/repository"
+	"github.com/philoftp/internal/service"
 )
 
 // App 是 PhiloFTP 服务管理器，统一管理 FTP/Web 服务的启停与状态。
@@ -101,7 +102,7 @@ func (a *App) Start() error {
 	a.ftpSrv = ftpSrv
 
 	// Web
-	webSrv, err := handler.StartWeb(a.cfg, store, webFS)
+	webSrv, err := handler.StartWeb(a.cfg, store, embedfs.WebFS)
 	if err != nil {
 		if isAddrInUse(err) {
 			a.lastErr = fmt.Errorf("%s", formatPortInUseMsg("Web 管理", a.cfg.WebPort, err))

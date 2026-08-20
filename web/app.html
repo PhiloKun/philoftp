@@ -185,6 +185,14 @@
         </div>
       </div>
 
+      <!-- 我的分享 -->
+      <section class="view" id="v-share">
+        <div class="sec-head"><h2>我的分享</h2><span class="ov-sub" style="margin:0">把文件/目录生成公开临时链接，无需登录即可访问（可设提取码与有效期）。</span></div>
+        <div class="table-wrap"><table><thead><tr><th>名称</th><th>类型 / 保护</th><th>有效期</th><th style="width:200px">操作</th></tr></thead><tbody id="shareListView"></tbody></table></div>
+        <div class="empty" id="shareListEmpty" style="display:none">暂无分享。在「文件管理」中点击文件上的「分享」即可生成公开链接。</div>
+        <button class="btn btn-ghost btn-sm" id="shareNewFromList" style="margin-top:14px">＋ 前往文件管理分享</button>
+      </section>
+
       <!-- 用户管理 -->
       <section class="view" id="v-users" data-admin>
         <div class="sec-head"><h2>用户管理</h2><button class="btn btn-primary btn-sm" id="addUserBtn">＋ 新增用户</button></div>
@@ -260,6 +268,43 @@
     <div class="confirm-actions">
       <button class="btn btn-ghost btn-md" id="promptCancel">取消</button>
       <button class="btn btn-primary btn-md" id="promptOk">创建</button>
+    </div>
+  </div>
+</div>
+<!-- 生成分享链接弹窗 -->
+<div class="overlay" id="shareModal">
+  <div class="modal glass" style="width:460px">
+    <div class="modal-head" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <span style="font-size:16px;font-weight:600">🔗 生成分享链接</span>
+      <button class="btn btn-ghost btn-xs" id="shareCloseBtn">✕</button>
+    </div>
+    <div class="share-gen-path mono" id="sharePath" style="font-size:12px;color:var(--muted);margin-bottom:14px;word-break:break-all"></div>
+    <div class="field" style="margin-bottom:12px">
+      <div class="lbl" style="font-size:12px;margin-bottom:6px">有效期</div>
+      <select class="input" id="shareExpire">
+        <option value="0">永久有效</option>
+        <option value="1">1 小时</option>
+        <option value="24">1 天</option>
+        <option value="72">3 天</option>
+        <option value="168">7 天</option>
+        <option value="720">30 天</option>
+      </select>
+    </div>
+    <div class="field" style="margin-bottom:16px">
+      <div class="lbl" style="font-size:12px;margin-bottom:6px">提取码（留空则无需提取码）</div>
+      <input class="input" id="shareCode" autocomplete="off" maxlength="32" placeholder="可选，例如 8888">
+    </div>
+    <div class="err" id="shareErr" style="color:#f87171;min-height:16px;font-size:13px;margin-bottom:8px"></div>
+    <button class="btn btn-primary btn-md" id="shareGenBtn" style="width:100%">生成链接</button>
+    <div id="shareResult" style="display:none;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)">
+      <div class="share-meta" id="shareMeta" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"></div>
+      <div class="field" style="margin-bottom:10px">
+        <input class="input mono" id="shareUrl" readonly>
+      </div>
+      <div class="confirm-actions">
+        <button class="btn btn-primary btn-md" id="shareCopyBtn">复制链接</button>
+        <button class="btn btn-ghost btn-md" id="shareManageBtn">管理我的分享</button>
+      </div>
     </div>
   </div>
 </div>

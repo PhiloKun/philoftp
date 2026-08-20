@@ -13,8 +13,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/philoftp/config"
-	"github.com/philoftp/model"
+	"github.com/philoftp/internal/config"
+	"github.com/philoftp/internal/model"
 )
 
 // TrashItem 回收站索引项

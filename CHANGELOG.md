@@ -25,9 +25,19 @@
 
 ---
 
-## 未发布（Unreleased）
+## [1.0.6] - 2026-08-20
 
-_当前无待发布变更。发布前请将本小节内容迁移至具体版本条目。_
+### 🆕 新功能
+- **文件分享链接**：对任意文件/目录一键生成公开临时链接（`/s/<token>`），无需登录即可访问，适合内网把文件发给访客。支持设置**提取码**（设码后先展示极简提取码输入页校验）与**有效期**（1 小时 / 1 天 / 3 天 / 7 天 / 30 天 / 永久）；目录分享自动打包为 zip 下载，文件支持预览（`?inline=1`）或下载（`?dl=1`）。分享由分享者显式授权，跨用户查找有效且未过期记录，严格限制在分享者 home 内（复用 `safeJoin` 越权防护），不破坏 RBAC。文件行新增「分享」按钮，导航新增「我的分享」视图，可集中查看、复制链接或一键撤销（`DELETE /api/share/:token`）。后端 `internal/handler/share.go` + 公开路由 `/s/:token`，分享记录按用户存于 home 内 `.shares/index.json`。
+
+### ✨ 改进
+- **项目目录结构梳理（中等重构）**：按职责重新组织目录，提升可维护性。入口收敛至 `cmd/philoftp/`（package main）；后端按层拆分为 `internal/{config,handler,model,repository,service}`；前端 `web/` 保持独立目录与后端物理解耦；嵌入资源集中于根级 `embedfs.go`（规避 `//go:embed` 不支持 `..` 的限制）。构建入口相应改为 `go build ./cmd/philoftp`，ldflags 注入路径更新为 `github.com/philoftp/cmd/philoftp` 与 `github.com/philoftp/internal/handler`。
+
+### 🐛 Bug 修复
+- **分享信息页「下载 / 预览」按钮跳回提取码页**
+  - **描述**：访问带提取码的分享、进入文件信息页后，点击「下载文件」或「预览」会跳回提取码输入页，无法执行预期操作。
+  - **影响范围**：所有设置了提取码的分享链接（无提取码的分享不受影响）。
+  - **修复方式**：根因为信息页下载/预览链接（`?dl=1` / `?inline=1`）未携带 `code` 参数，后端 `publicShareHandler` 判定「未带提取码」而重渲染提取码页。已在 `serveShareInfoPage` 中当分享含提取码时把 `&code=<提取码>` 拼入两个按钮的 `href`，点击后正常返回文件流。
 
 ---
 

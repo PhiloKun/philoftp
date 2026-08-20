@@ -11,9 +11,9 @@ import (
 
 	"github.com/goftp/server"
 
-	"github.com/philoftp/config"
-	"github.com/philoftp/model"
-	"github.com/philoftp/repository"
+	"github.com/philoftp/internal/config"
+	"github.com/philoftp/internal/model"
+	"github.com/philoftp/internal/repository"
 )
 
 // ftpAuth 实现 server.Auth，校验数据库中的用户

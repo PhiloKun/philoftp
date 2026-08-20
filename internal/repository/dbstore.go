@@ -13,7 +13,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	_ "modernc.org/sqlite"
 
-	"github.com/philoftp/model"
+	"github.com/philoftp/internal/model"
 )
 
 // DBStore 是基于 SQLite 的用户存储实现（纯 Go 驱动，无 cgo，单二进制可分发）。

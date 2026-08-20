@@ -128,6 +128,7 @@
   var NAV = [
     { id:'overview', ico:'◳', label:'概览', admin:false },
     { id:'files', ico:'🗂', label:'文件管理', admin:false },
+    { id:'share', ico:'🔗', label:'我的分享', admin:false },
     { id:'users', ico:'👥', label:'用户管理', admin:true },
     { id:'settings', ico:'⚙', label:'系统设置', admin:true },
     { id:'about', ico:'ℹ', label:'关于', admin:false }
@@ -154,6 +155,7 @@
     el('crumb').textContent = '控制台 · ' + (labels[id] || '');
     if(id==='overview') loadOverview();
     if(id==='files') loadFiles();
+    if(id==='share') openShareList();
     if(id==='users') loadUsers();
     if(id==='settings') loadSettings();
     if(id==='trash') loadTrash();
@@ -820,6 +822,7 @@
         if(!f.is_dir && /\.zip$/i.test(f.name)){
           ops += ' <button class="btn btn-ghost btn-sm" data-unzip="'+esc(fp)+'">解压</button>';
         }
+        ops += ' <button class="btn btn-ghost btn-sm" data-share="'+esc(fp)+'">分享</button>';
         ops += ' <button class="btn btn-danger btn-sm" data-del="'+esc(f.name)+'">删除</button>';
         var nameCell = '<span class="row-name'+(f.is_dir?' is-dir':'')+'" data-name="'+esc(f.name)+'" data-isdir="'+(f.is_dir?'1':'0')+'">'
           +(f.is_dir?'📁 ':'📄 ')+esc(f.name)+(f.is_dir?' ›':'')+'</span>';
@@ -837,6 +840,7 @@
       qa('[data-del]', tb).forEach(function(b){ b.onclick = function(){ delItem(p, b.getAttribute('data-del')); }; });
       qa('[data-rename]', tb).forEach(function(b){ b.onclick = function(){ renameItem(b.getAttribute('data-rename')); }; });
       qa('[data-unzip]', tb).forEach(function(b){ b.onclick = function(){ unzipItem(b.getAttribute('data-unzip')); }; });
+      qa('[data-share]', tb).forEach(function(b){ b.onclick = function(){ openShareDialog(b.getAttribute('data-share')); }; });
       qa('.row-name', tb).forEach(function(n){
         var isDir = n.getAttribute('data-isdir') === '1';
         var name = n.getAttribute('data-name');
@@ -982,6 +986,68 @@
   function download(dir, name){
     var url = '/api/download?path=' + encodeURIComponent((dir==='/'?'':dir) + '/' + name);
     var a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  }
+  // 生成文件/目录分享链接
+  function openShareDialog(fullPath){
+    var m = el('shareModal');
+    el('sharePath').textContent = fullPath;
+    el('shareCode').value = '';
+    el('shareExpire').value = '0';
+    el('shareResult').style.display = 'none';
+    el('shareErr').textContent = '';
+    m.classList.add('show');
+    el('shareGenBtn').onclick = function(){
+      var code = el('shareCode').value.trim();
+      var expireIn = parseInt(el('shareExpire').value, 10) || 0;
+      el('shareErr').textContent = '';
+      api('/api/share', { method:'POST', body: JSON.stringify({ path: fullPath, code: code, expire_in: expireIn }) })
+        .then(function(x){
+          if(!x.ok){ el('shareErr').textContent = x.d.error || '生成失败'; return; }
+          var rec = x.d.share;
+          var url = x.d.url;
+          var box = el('shareResult');
+          box.style.display = 'block';
+          el('shareUrl').value = url;
+          el('shareMeta').innerHTML =
+            '<span class="tag">'+(rec.is_dir?'目录':'文件')+'</span>' +
+            (rec.code ? '<span class="tag">提取码 ' + esc(rec.code) + '</span>' : '<span class="tag">无提取码</span>') +
+            (rec.expires_at ? '<span class="tag">过期 ' + esc(rec.expires_at) + '</span>' : '<span class="tag tone-ok">永不过期</span>');
+        });
+    };
+    el('shareCopyBtn').onclick = function(){
+      var u = el('shareUrl').value;
+      if(navigator.clipboard){ navigator.clipboard.writeText(u).then(function(){ toast('分享链接已复制', true); }, function(){ el('shareUrl').select(); document.execCommand('copy'); toast('分享链接已复制', true); }); }
+      else { el('shareUrl').select(); document.execCommand('copy'); toast('分享链接已复制', true); }
+    };
+    el('shareManageBtn').onclick = function(){ m.classList.remove('show'); showView('share'); openShareList(); };
+    el('shareCloseBtn').onclick = function(){ m.classList.remove('show'); };
+    m.onclick = function(e){ if(e.target === m) m.classList.remove('show'); };
+  }
+  // 我的分享列表（渲染到 v-share 视图）
+  function openShareList(){
+    var body = el('shareListView');
+    var empty = el('shareListEmpty');
+    if(empty) empty.style.display = 'none';
+    body.innerHTML = '<tr><td colspan="4"><div class="loading">加载中…</div></td></tr>';
+    var bNew = el('shareNewFromList');
+    if(bNew) bNew.onclick = function(){ showView('files'); };
+    api('/api/share').then(function(x){
+      if(!x.ok){ body.innerHTML = '<tr><td colspan="4"><div class="err">加载失败</div></td></tr>'; return; }
+      var items = x.d.items || [];
+      if(!items.length){ body.innerHTML = ''; if(empty) empty.style.display = 'block'; return; }
+      body.innerHTML = items.map(function(it){
+        var url = it.url;
+        return '<tr>' +
+          '<td><span class="row-name'+(it.is_dir?' is-dir':'')+'">'+esc(it.name)+'</span></td>' +
+          '<td>'+(it.is_dir?'📁 目录':'📄 文件')+(it.code?' · 🔒 提取码':'')+'</td>' +
+          '<td>'+(it.expires_at?esc(it.expires_at):'<span class="tone-ok">永不过期</span>')+'</td>' +
+          '<td><button class="btn btn-ghost btn-sm" data-copy="'+esc(url)+'">复制链接</button>' +
+            '<button class="btn btn-danger btn-sm" data-revoke="'+esc(it.token)+'">撤销</button></td>' +
+        '</tr>';
+      }).join('');
+      qa('[data-copy]', body).forEach(function(b){ b.onclick = function(){ var u=b.getAttribute('data-copy'); if(navigator.clipboard){navigator.clipboard.writeText(u);} else {var t=document.createElement('textarea');t.value=u;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();} toast('链接已复制', true); }; });
+      qa('[data-revoke]', body).forEach(function(b){ b.onclick = function(){ api('/api/share/'+b.getAttribute('data-revoke'), { method:'DELETE' }).then(function(y){ if(y.ok){ toast('已撤销分享', true); openShareList(); } else toast(y.d.error||'撤销失败', false); }); }; });
+    });
   }
   function delItem(dir, name){
     confirmDialog({

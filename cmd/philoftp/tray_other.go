@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/philoftp/config"
+	"github.com/philoftp/internal/config"
 )
 
 // runTray 在非 Windows 平台保持传统控制台模式（不启用系统托盘）。

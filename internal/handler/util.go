@@ -10,8 +10,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/philoftp/config"
-	"github.com/philoftp/model"
+	"github.com/philoftp/internal/config"
+	"github.com/philoftp/internal/model"
 )
 
 // appAuth 保存当前鉴权管理器实例，供辅助函数取登录用户
@@ -99,4 +99,3 @@ func isASCII(s string) bool {
 	}
 	return true
 }
-

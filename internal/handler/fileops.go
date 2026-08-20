@@ -15,8 +15,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/philoftp/config"
-	"github.com/philoftp/model"
+	"github.com/philoftp/internal/config"
+	"github.com/philoftp/internal/model"
 )
 
 // 搜索结果上限，避免目录过大时响应过长/卡顿
@@ -57,7 +57,7 @@ func renameHandler(cfg *config.Config) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "名称非法"})
 			return
 		}
-	src, err := safeJoin(cfg, user, req.Path)
+		src, err := safeJoin(cfg, user, req.Path)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -214,12 +214,12 @@ func searchHandler(cfg *config.Config) gin.HandlerFunc {
 				"mod_time": info.ModTime().Format("2006-01-02 15:04"),
 			})
 			return nil
-			})
+		})
 		c.JSON(http.StatusOK, gin.H{
-			"q":       q,
-			"count":   len(results),
+			"q":         q,
+			"count":     len(results),
 			"truncated": len(results) >= searchMaxResults,
-			"items":  results,
+			"items":     results,
 		})
 	}
 }
